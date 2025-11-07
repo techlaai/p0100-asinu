@@ -1,7 +1,7 @@
 // src/lib/analytics/eventTracker.ts
 // Event tracking utility for analytics_events table
 
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { query } from '@/lib/db_client';
 
 export type EventType =
   | 'meal.logged'
@@ -37,20 +37,17 @@ export async function trackEvent(params: TrackEventParams): Promise<void> {
   } = params;
 
   try {
-    const { error } = await supabaseAdmin()
-      .from('analytics_events')
-      .insert({
-        event_type: eventType,
-        schema_version: schemaVersion,
-        request_id: requestId,
-        user_id: userId,
+    await query(
+      `INSERT INTO analytics_events (
+        event_type,
+        schema_version,
+        request_id,
+        user_id,
         payload,
-        created_at: new Date().toISOString()
-      });
-
-    if (error) {
-      console.error('Failed to track event:', error);
-    }
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5::jsonb, now())`,
+      [eventType, schemaVersion, requestId, userId, JSON.stringify(payload)],
+    );
   } catch (err) {
     // Silent fail - don't break user flow
     console.error('Event tracking error:', err);

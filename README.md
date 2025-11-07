@@ -1,11 +1,11 @@
-# ANORA — Clean Scaffold (Next.js 14.2 + Postgres + Docker)
+# ASINU — Clean Scaffold (Next.js 14.2 + Postgres + Docker)
 
 ## 🚀 Quick Start
 
 ```bash
 # 1️⃣ Clone
-git clone https://github.com/<org>/<repo>.git anora
-cd anora
+git clone https://github.com/<org>/<repo>.git asinu
+cd asinu
 
 # 2️⃣ ENV
 cp .env.example .env.local
@@ -95,4 +95,4 @@ Tech Lead: Trần Quang Tùng
 QA Lead: Đặng Tuấn Anh  
 Product Owner: Trần Hoàng Nam
 
-© 2025 CÔNG TY CỔ PHẦN ANORA — All rights reserved.
+© 2025 CÔNG TY CỔ PHẦN ASINU — All rights reserved.

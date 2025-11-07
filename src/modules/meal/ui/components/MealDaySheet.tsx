@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { GetMenuByDay, MenuItem, DayMenu } from "../../application/usecases/GetMenuByDay";
 import MealCard from "./MealCard";
 import AddMealButton from "./AddMealButton";
+import { apiFetch, ApiError } from "@/lib/http";
 
 export default function MealDaySheet({ dateISO, onClose }:{ dateISO:string; onClose:()=>void }){
   const [level, setLevel] = useState<"basic"|"performance">("basic");
@@ -24,19 +25,27 @@ export default function MealDaySheet({ dateISO, onClose }:{ dateISO:string; onCl
   },[dateISO, level]);
 
   async function saveMeal(item: MenuItem){
-    const res = await fetch("/api/log/meal", {
-      method:"POST",
-      headers:{ "content-type":"application/json" },
-      body: JSON.stringify({
-        meal_type: item.meal_type,
-        text: item.name,
-        portion: "medium",
-        ts: new Date(dateISO).toISOString()
-      })
-    });
-    const j = await res.json();
-    if (!res.ok) throw new Error(j?.error || "save failed");
-    alert("Đã lưu: " + item.name);
+    try {
+      await apiFetch("/api/log/meal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meal_type: item.meal_type,
+          text: item.name,
+          portion: "medium",
+          noted_at: new Date(dateISO).toISOString(),
+        }),
+      });
+      alert("Đã lưu: " + item.name);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Lưu món ăn thất bại.";
+      alert(message);
+    }
   }
   async function saveAll(){
     if (!menu) return;

@@ -7,7 +7,7 @@ type Props = {
   filename?: string; 
 };
 
-export default function ExportProfileButton({ data, filename = 'anora-profile.json' }: Props) {
+export default function ExportProfileButton({ data, filename = 'asinu-profile.json' }: Props) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 

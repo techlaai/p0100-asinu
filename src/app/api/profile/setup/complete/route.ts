@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { z } from "zod";
 import { requireAuth } from "@/lib/auth/getUserId";
 import { ProfilesRepo } from "@/infrastructure/repositories/ProfilesRepo";
-import { z } from "zod";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
 
 // Define a schema for the incoming setupData
 const setupDataSchema = z.object({
@@ -25,16 +26,24 @@ const setupDataSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  try {
-    const userId = await requireAuth(req);
-    const repo = new ProfilesRepo();
-    const body = await req.json();
-    const setupData = setupDataSchema.parse(body.setupData); // Validate incoming setupData
+  const userId = await requireAuth(req).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: req });
+  }
 
-    // Update the user's profile with the setup data and mark onboarding as complete
+  const body = await req.json().catch(() => null);
+  const setupPayload = body?.setupData;
+  const parsed = setupDataSchema.safeParse(setupPayload);
+  if (!parsed.success) {
+    return jsonError("VALIDATION_ERROR", { request: req, details: parsed.error.flatten() });
+  }
+
+  try {
+    const repo = new ProfilesRepo();
+    const setupData = parsed.data;
     const updatedProfile = await repo.update(userId, {
       dob: setupData.birthDate,
-      sex: setupData.gender?.toLowerCase() as any, // Assuming gender maps to 'sex' enum
+      sex: setupData.gender?.toLowerCase() as any,
       height_cm: setupData.height,
       weight_kg: setupData.weight,
       conditions: setupData.conditions,
@@ -45,12 +54,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ ok: true, data: updatedProfile }, { status: 200 });
-  } catch (error: any) {
-    if (error.message === "Authentication required") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    return jsonSuccess(updatedProfile, { request: req, cacheControl: "no-store" });
+  } catch (error) {
     console.error("Error completing onboarding:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("INTERNAL_ERROR", { request: req });
   }
 }

@@ -1,35 +1,24 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-
-function CallbackInner() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    if (!searchParams) return; // ✅ chặn null
-
-    const code = searchParams.get("code");
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          console.error("Auth callback error:", error.message);
-          return;
-        }
-        router.push("/profile");
-      });
-    }
-  }, [router, searchParams]);
-
-  return <p>Đang xử lý đăng nhập...</p>;
-}
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function CallbackPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/auth/login");
+  }, [router]);
+
   return (
-    <Suspense fallback={<p>Loading...</p>}>
-      <CallbackInner />
-    </Suspense>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/20">
+      <div className="bg-white shadow-lg rounded-xl px-6 py-8 text-center max-w-sm">
+        <h1 className="text-lg font-semibold text-gray-800 mb-2">Đang chuyển hướng…</h1>
+        <p className="text-sm text-gray-600">
+          Liên kết đăng nhập không còn được hỗ trợ. Vui lòng đăng nhập bằng email hoặc số điện
+          thoại trực tiếp trên Asinu.
+        </p>
+      </div>
+    </div>
   );
 }

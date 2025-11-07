@@ -13,7 +13,7 @@ export default function FloatingAIBtn() {
     >
       {/* chỉ PNG, không bo/viền; dùng đổ bóng token để nổi khối */}
       <Image
-        src="/assets/anora.png"
+        src="/assets/asinu.png"
         alt="DIABOT"
         width={200}
         height={200}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase/admin"; // Đã sửa import
 import { requireAuth } from "@/lib/auth/getUserId";
+import { query } from "@/lib/db_client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -54,23 +54,23 @@ export async function GET(req: NextRequest) {
     console.log(`[Meal Chart] userId=${userId} range=${range} weekStarts=${weekStarts.join(',')}`);
     
     // Query cache_meal_week for the specified week_start dates
-    const { data: cacheData, error: cacheError } = await supabaseAdmin() // Gọi supabaseAdmin như một hàm
-      .from('cache_meal_week')
-      .select('week_start, summary') // Select week_start instead of week
-      .eq('profile_id', userId)
-      .in('week_start', weekStarts) // Filter by week_start
-      .order('week_start', { ascending: false }); // Order by week_start
-    
-    if (cacheError) {
-      console.error(`[Meal Chart] Cache query error: ${cacheError.message}`);
-      return NextResponse.json(
-        { ok: false, error: "Database error", message: "Failed to fetch meal cache data" },
-        { status: 500 }
-      );
-    }
+    const placeholders = weekStarts.map((_, idx) => `$${idx + 2}`).join(", ");
+    const cacheQuery = `
+      SELECT week_start, summary
+      FROM cache_meal_week
+      WHERE user_id = $1
+        AND week_start IN (${placeholders})
+      ORDER BY week_start DESC`;
+
+    const cacheResult = weekStarts.length
+      ? await query<{ week_start: string; summary: Record<string, any> | null }>(
+          cacheQuery,
+          [userId, ...weekStarts],
+        )
+      : { rows: [] as any[] };
     
     // Transform cache data to chart format
-    const chartData = (cacheData || []).map(row => ({
+    const chartData = (cacheResult.rows || []).map(row => ({
       week_start: row.week_start, // Use week_start
       week_label: row.summary?.week_label || `Week starting ${row.week_start}`, // Use week_start for fallback label
       total_meals: row.summary?.total_meals || 0,

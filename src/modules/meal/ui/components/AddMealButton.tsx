@@ -1,6 +1,7 @@
 // src/modules/meal/ui/components/AddMealButton.tsx
 "use client";
 import { useState } from "react";
+import { apiFetch, ApiError } from "@/lib/http";
 
 export default function AddMealButton({ dateISO }:{dateISO:string}){
   const [text, setText] = useState("");
@@ -11,22 +12,26 @@ export default function AddMealButton({ dateISO }:{dateISO:string}){
     if (!text.trim()) { alert("Nhập món ngoài"); return; }
     setLoading(true);
     try{
-      const res = await fetch("/api/log/meal", {
+      await apiFetch("/api/log/meal", {
         method:"POST",
-        headers:{ "content-type":"application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({
           meal_type:"snack",
           text,
           portion,
-          ts: new Date(dateISO).toISOString(),
+          noted_at: new Date(dateISO).toISOString(),
         })
       });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || "save failed");
       setText("");
       alert("Đã lưu món ngoài");
-    }catch(e:any){
-      alert("Lỗi: " + (e.message||e));
+    }catch(e){
+      const message =
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : "Không thể lưu món ngoài.";
+      alert("Lỗi: " + message);
     }finally{
       setLoading(false);
     }

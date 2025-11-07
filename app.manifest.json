@@ -1,6 +1,6 @@
 {
-  "name": "ANORA CloudOps Center",
-  "description": "Trung tâm điều hành ANORA: build, deploy, monitor, backup qua GPT.",
+  "name": "ASINU CloudOps Center",
+  "description": "Trung tâm điều hành ASINU: build, deploy, monitor, backup qua GPT.",
   "permissions": [
     "filesystem.read_write",
     "network.outbound",

@@ -1,43 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth/getUserId";
+import { query } from "@/lib/db_client";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
+import type { InsulinType } from "@/domain/types";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
 
 const bodySchema = z.object({
-  dose_units: z.number().min(0.1).max(100),
-  type: z.enum(["bolus","basal","mixed","correction"]).optional(),
-  taken_at: z.string().datetime().optional(),
+  dose_units: z.number().min(0.1).max(200),
+  insulin_type: z.enum(["rapid","regular","intermediate","long","mixed","other"]).optional(),
+  noted_at: z.string().datetime({ offset: true }).optional(),
+  meal_id: z.number().int().positive().optional(),
+  notes: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
+  const userId = await requireAuth(req).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: req });
+  }
+
+  const json = await req.json().catch(() => null);
+  const parse = bodySchema.safeParse(json);
+  if (!parse.success) {
+    return jsonError("VALIDATION_ERROR", { request: req, details: parse.error.flatten() });
+  }
+
+  const { dose_units, insulin_type, noted_at, meal_id, notes } = parse.data;
+  const notedAt = noted_at ? new Date(noted_at).toISOString() : new Date().toISOString();
+
   try {
-    const userId = await requireAuth(req);
+    const res = await query(
+      `INSERT INTO log_insulin (user_id, dose_units, insulin_type, meal_id, notes, noted_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+       RETURNING id, user_id, dose_units, insulin_type, meal_id, notes, noted_at, created_at, updated_at`,
+      [userId, dose_units, (insulin_type as InsulinType | undefined) ?? null, meal_id ?? null, notes ?? null, notedAt],
+    );
 
-    const json = await req.json().catch(() => null);
-    const parse = bodySchema.safeParse(json);
-    if (!parse.success) return NextResponse.json({ error: parse.error.flatten() }, { status: 400 });
-
-    const { dose_units, type, taken_at } = parse.data;
-    const taken = taken_at ? new Date(taken_at).toISOString() : new Date().toISOString();
-
-    const sb = supabaseAdmin(); // Gọi supabaseAdmin như một hàm
-    const { data, error } = await sb
-      .from("insulin_logs")
-      .insert({ user_id: userId, dose_units, type, taken_at: taken })
-      .select()
-      .single();
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, data }, { status: 201 });
-  } catch (error: any) {
-    if (error.message === "Authentication required") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    return jsonSuccess(res.rows[0], { request: req, cacheControl: "no-store", status: 201 });
+  } catch (error) {
     console.error("Error in /api/log/insulin:", error);
-    return NextResponse.json({ error: error.message || "unknown" }, { status: 500 });
+    return jsonError("INTERNAL_ERROR", { request: req });
   }
 }

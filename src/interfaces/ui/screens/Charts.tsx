@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { TrendingUp } from "lucide-react";
 import Card from "../components/Card";
-import { TrendingUp } from 'lucide-react';
+import { apiFetch, ApiError } from "@/lib/http";
 
 const GlucoseLine = dynamic(() => import('@components/charts/GlucoseLine'), { 
   ssr: false,
@@ -18,25 +19,47 @@ export default function Charts() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const userId = process.env.NEXT_PUBLIC_DEMO_USER_ID || "00000000-0000-0000-0000-000000000000";
-
   useEffect(() => {
     (async () => {
       try {
-        setLoading(true); setErr(null);
-        const res = await fetch(`/api/chart/avg_glucose?window=${win}&userId=${userId}`);
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || "Fetch chart failed");
-        // expect {points: [{day:"2025-09-01", value:123}, ...]}
-        const points = json.points || [];
-        setData(points.map((p: any) => ({ t: p.day, v: p.value })));
-      } catch (e: any) {
-        setErr(e?.message || "Unknown error");
+        setLoading(true);
+        setErr(null);
+        if (win === "7d") {
+          const payload = await apiFetch<Array<{ day: string; avg_bg: number | null }>>(
+            "/api/chart/7d",
+            { cache: "no-store" },
+          );
+          setData(
+            payload.map((row) => ({
+              t: row.day,
+              v: row.avg_bg ?? 0,
+            })),
+          );
+        } else {
+          const payload = await apiFetch<{
+            series30: Array<{ date: string; bg_avg: number | null }>;
+          }>("/api/chart/fallback", { cache: "no-store" });
+          const series = payload.series30 ?? [];
+          setData(
+            series.map((row) => ({
+              t: row.date,
+              v: row.bg_avg ?? 0,
+            })),
+          );
+        }
+      } catch (e) {
+        setErr(
+          e instanceof ApiError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : "Không thể tải biểu đồ.",
+        );
       } finally {
         setLoading(false);
       }
     })();
-  }, [win, userId]);
+  }, [win]);
 
   const chartData = useMemo(() => data.map(d => ({ d: d.t?.slice(5) || '', glucose: d.v || 0 })), [data]);
 

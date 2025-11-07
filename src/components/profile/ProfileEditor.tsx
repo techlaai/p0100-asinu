@@ -10,6 +10,7 @@ import {
   PersonaPrefs,
   HealthConditions,
 } from '@/lib/profile/mappers';
+import { apiFetch, ApiError } from "@/lib/http";
 
 type Conditions = {
   diabetes?: boolean;
@@ -93,13 +94,20 @@ export default function ProfileEditor({ profile, onSaved }: Props) {
   async function saveBasic() {
     setSaving(true);
     try {
-      const res = await fetch(`/api/profile/${profile.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const updated = await apiFetch<Profile>(`/api/profile/${profile.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profilePayload),
       });
-      if (!res.ok) throw new Error(await res.text());
-      onSaved?.(await res.json());
+      onSaved?.(updated);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Không thể lưu thông tin cơ bản.";
+      alert(message);
     } finally {
       setSaving(false);
     }
@@ -108,17 +116,24 @@ export default function ProfileEditor({ profile, onSaved }: Props) {
   async function saveGoals() {
     setSaving(true);
     try {
-      const res = await fetch('/api/profile/goals', {
+      await apiFetch('/api/profile/goals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(toGoalsPayload(goals)),
       });
-      if (!res.ok) throw new Error(await res.text());
       const nextPrefs: Profile['prefs'] = {
         ...(profile.prefs ?? {}),
         goals,
       };
       onSaved?.({ prefs: nextPrefs });
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Không thể lưu mục tiêu.";
+      alert(message);
     } finally {
       setSaving(false);
     }
@@ -127,17 +142,24 @@ export default function ProfileEditor({ profile, onSaved }: Props) {
   async function savePersona() {
     setSaving(true);
     try {
-      const res = await fetch('/api/profile/personality', {
+      await apiFetch('/api/profile/personality', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(toPersonalityPayload(prefs)),
       });
-      if (!res.ok) throw new Error(await res.text());
       const nextPrefs: Profile['prefs'] = {
         ...(profile.prefs ?? {}),
         ...prefs,
       };
       onSaved?.({ prefs: nextPrefs });
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Không thể lưu sở thích.";
+      alert(message);
     } finally {
       setSaving(false);
     }

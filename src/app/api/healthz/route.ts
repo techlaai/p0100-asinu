@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerClient } from "@/lib/supabase/server";
+import { query } from "@/lib/db_client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -29,24 +29,12 @@ interface HealthCheckResult {
 async function checkDatabase(): Promise<HealthCheckResult["checks"]["database"]> {
   try {
     const startTime = Date.now();
-    const supabase = getServerClient();
 
-    // Simple ping query
-    const { error } = await supabase.from("profiles").select("id").limit(1);
-
-    const latency = Date.now() - startTime;
-
-    if (error) {
-      return {
-        status: "error",
-        error: error.message,
-        latency_ms: latency,
-      };
-    }
+    await query("SELECT 1");
 
     return {
       status: "ok",
-      latency_ms: latency,
+      latency_ms: Date.now() - startTime,
     };
   } catch (err) {
     return {
@@ -101,9 +89,7 @@ function checkStorage(): HealthCheckResult["checks"]["storage"] {
 
 function checkEnvironment(): HealthCheckResult["checks"]["environment"] {
   const requiredVars = [
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
+    "DIABOT_DB_URL",
   ];
 
   const missing = requiredVars.filter(v => !process.env[v]);

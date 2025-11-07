@@ -1,142 +1,185 @@
--- DIABOT DB Migration (Viettel) - 000_init.sql
--- Generated: 2025-10-09T10:08:36.954202
--- Scope: Core MVP schema (Input + Rule-lite). No AI layer tables here.
+-- DIABOT DB Migration - Core Schema (Asinu)
+-- Generated: 2025-10-09
+-- Scope: Core MVP schema aligned with DIABOT V5 storage conventions.
 
--- Extensions
-CREATE EXTENSION IF NOT EXISTS pgcrypto; -- for gen_random_uuid()
+-- Ensure pgcrypto is available for UUID generation.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- =====================================================================
--- A) Core master table
+-- 1) User profile and configuration
 -- =====================================================================
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  name TEXT,
+CREATE TABLE IF NOT EXISTS app_user (
+  user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE,
+  phone TEXT,
+  display_name TEXT,
   dob DATE,
-  gender TEXT,
+  sex TEXT CHECK (sex IN ('male','female','other')),
+  timezone TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+  user_id UUID PRIMARY KEY REFERENCES app_user(user_id) ON DELETE CASCADE,
+  unit_glucose TEXT NOT NULL DEFAULT 'mgdl' CHECK (unit_glucose IN ('mgdl','mmol')),
+  bg_target_min_mgdl NUMERIC,
+  bg_target_max_mgdl NUMERIC,
+  carb_ratio_g_per_u NUMERIC,
+  insulin_sensitivity_mgdl_per_u NUMERIC,
+  reminder_flags JSONB NOT NULL DEFAULT '{}'::jsonb,
   height_cm NUMERIC(5,2),
-  chronic_notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
-
--- =====================================================================
--- B) Input Layer (raw logs)
--- =====================================================================
-CREATE TABLE IF NOT EXISTS bg_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  value NUMERIC(6,2) NOT NULL,
-  unit TEXT NOT NULL CHECK (unit IN ('mg/dL','mmol/L')),
-  context TEXT,
-  ts TIMESTAMPTZ NOT NULL,
-  note TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_bg_profile_ts ON bg_logs(profile_id, ts DESC);
-
-CREATE TABLE IF NOT EXISTS bp_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  systolic INT NOT NULL,
-  diastolic INT NOT NULL,
-  pulse INT,
-  ts TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_bp_profile_ts ON bp_logs(profile_id, ts DESC);
-
-CREATE TABLE IF NOT EXISTS weight_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  kg NUMERIC(5,2) NOT NULL,
-  ts TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_weight_profile_ts ON weight_logs(profile_id, ts DESC);
-
-CREATE TABLE IF NOT EXISTS water_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  ml INT NOT NULL CHECK (ml > 0),
-  ts TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_water_profile_ts ON water_logs(profile_id, ts DESC);
-
-CREATE TABLE IF NOT EXISTS meal_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  meal_type TEXT,               -- e.g. breakfast|lunch|dinner|snack
-  text TEXT,                    -- free text description
-  portion TEXT,                 -- optional portion descriptor
-  ts TIMESTAMPTZ NOT NULL,
-  photo_url TEXT,
-  ai_tip_id UUID,               -- reserved for AI layer (no FK here)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_meal_profile_ts ON meal_logs(profile_id, ts DESC);
-
-CREATE TABLE IF NOT EXISTS insulin_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  dose NUMERIC(6,2) NOT NULL,
-  type TEXT CHECK (type IN ('rapid','basal') OR type IS NULL),
-  context TEXT,
-  ts TIMESTAMPTZ NOT NULL,
-  note TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_insulin_profile_ts ON insulin_logs(profile_id, ts DESC);
-
--- =====================================================================
--- C) Feature flags (per profile)
--- =====================================================================
-CREATE TABLE IF NOT EXISTS feature_flags (
-  profile_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
-  ai_agent_demo BOOLEAN NOT NULL DEFAULT TRUE,
-  ai_factcheck_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-  ai_voice_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-  ml_meal_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-  family_link_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-  ai_chat_model TEXT DEFAULT 'gpt-5',
-  ai_budget_vnd INT NOT NULL DEFAULT 0,
-  ai_token_cap INT NOT NULL DEFAULT 0,
-  factcheck_daily_quota INT NOT NULL DEFAULT 0,
-  chat_daily_quota INT NOT NULL DEFAULT 0,
-  voice_minutes_quota INT NOT NULL DEFAULT 0,
-  persona_switch_quota INT NOT NULL DEFAULT 0,
+  weight_kg NUMERIC(5,2),
+  waist_cm NUMERIC(5,2),
+  goal TEXT,
+  conditions JSONB NOT NULL DEFAULT '{}'::jsonb,
+  prefs JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- =====================================================================
--- D) Rule/OLAP-lite
+-- 2) Core health logs (MVP backbone)
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS log_meal (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  title TEXT,
+  carb_g NUMERIC(6,1),
+  protein_g NUMERIC(6,1),
+  fat_g NUMERIC(6,1),
+  kcal INT,
+  photo_key TEXT,
+  notes TEXT,
+  noted_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_log_meal_user_noted_at ON log_meal(user_id, noted_at DESC);
+
+CREATE TABLE IF NOT EXISTS log_bg (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  value_mgdl NUMERIC(5,1) NOT NULL,
+  context TEXT CHECK (context IN ('fasting','pre_meal','post_meal','random')),
+  meal_id BIGINT REFERENCES log_meal(id) ON DELETE SET NULL,
+  notes TEXT,
+  noted_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_log_bg_user_noted_at ON log_bg(user_id, noted_at DESC);
+
+CREATE TABLE IF NOT EXISTS log_bp (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  sys INT NOT NULL,
+  dia INT NOT NULL,
+  pulse INT,
+  noted_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_log_bp_user_noted_at ON log_bp(user_id, noted_at DESC);
+
+CREATE TABLE IF NOT EXISTS log_weight (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  weight_kg NUMERIC(5,2) NOT NULL,
+  bodyfat_pct NUMERIC(5,2),
+  noted_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_log_weight_user_noted_at ON log_weight(user_id, noted_at DESC);
+
+CREATE TABLE IF NOT EXISTS log_water (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  volume_ml INT NOT NULL CHECK (volume_ml > 0),
+  noted_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_log_water_user_noted_at ON log_water(user_id, noted_at DESC);
+
+CREATE TABLE IF NOT EXISTS log_insulin (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  insulin_type TEXT CHECK (insulin_type IN ('rapid','regular','intermediate','long','mixed','other')),
+  dose_units NUMERIC(5,2) NOT NULL,
+  meal_id BIGINT REFERENCES log_meal(id) ON DELETE SET NULL,
+  notes TEXT,
+  noted_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_log_insulin_user_noted_at ON log_insulin(user_id, noted_at DESC);
+
+-- =====================================================================
+-- 3) Optional quick-enable modules (activity & sleep)
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS log_activity (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  type TEXT,
+  duration_min INT NOT NULL,
+  steps INT,
+  kcal INT,
+  noted_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_log_activity_user_noted_at ON log_activity(user_id, noted_at DESC);
+
+CREATE TABLE IF NOT EXISTS log_sleep (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  duration_min INT NOT NULL,
+  quality_score INT,
+  noted_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_log_sleep_user_noted_at ON log_sleep(user_id, noted_at DESC);
+
+-- =====================================================================
+-- 4) Metrics aggregates
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS metrics_day (
   id BIGSERIAL PRIMARY KEY,
-  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  date DATE NOT NULL,
-  avg_bg NUMERIC(6,2),
-  total_water INT,
-  avg_weight NUMERIC(5,2),
-  avg_bp_sys INT,
-  avg_bp_dia INT,
-  kcal_in INT,
-  kcal_out INT,
-  logs_count INT NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  day DATE NOT NULL,
+  metric TEXT NOT NULL,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_metrics_day_profile_date ON metrics_day(profile_id, date);
-CREATE INDEX IF NOT EXISTS idx_metrics_day_profile_date ON metrics_day(profile_id, date DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_metrics_day_user_metric_day ON metrics_day(user_id, metric, day);
+CREATE INDEX IF NOT EXISTS idx_metrics_day_user_day ON metrics_day(user_id, day DESC);
+
+CREATE TABLE IF NOT EXISTS metrics_week (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  week INT NOT NULL,
+  metric TEXT NOT NULL,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_metrics_week_user_metric_week ON metrics_week(user_id, metric, week);
+CREATE INDEX IF NOT EXISTS idx_metrics_week_user_week ON metrics_week(user_id, week DESC);
 
 -- =====================================================================
--- E) System/Audit
+-- 5) Media / attachments metadata (object storage only)
 -- =====================================================================
-CREATE TABLE IF NOT EXISTS logs_system (
-  id BIGSERIAL PRIMARY KEY,
-  source TEXT,
-  level TEXT,
-  message TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS media_file (
+  file_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+  bucket TEXT NOT NULL,
+  object_key TEXT NOT NULL,
+  mime TEXT,
+  size_bytes BIGINT,
+  checksum_md5 TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_media_file_user_created_at ON media_file(user_id, created_at DESC);

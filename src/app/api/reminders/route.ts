@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerClient } from '@/lib/supabase/admin';
+import { requireAuth } from '@/lib/auth/getUserId';
 
 type Reminder = {
   id: string; type: 'med' | 'meal' | 'sleep';
@@ -9,16 +9,12 @@ type Reminder = {
 const store = new Map<string, Reminder[]>(); // userId -> reminders
 
 export async function GET() {
-  const supabase = getServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const uid = user?.id ?? 'demo';
+  const uid = (await requireAuth().catch(() => null)) ?? 'demo';
   return NextResponse.json({ ok: true, data: store.get(uid) ?? [] });
 }
 
 export async function POST(req: Request) {
-  const supabase = getServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const uid = user?.id ?? 'demo';
+  const uid = await requireAuth().catch(() => 'demo');
   const body = await req.json();
   const item: Reminder = {
     id: crypto.randomUUID(),

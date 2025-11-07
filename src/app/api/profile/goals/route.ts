@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth/getUserId";
-import { supabaseAdmin } from "@/lib/supabase/admin"; // Đã sửa import
-import { ProfileGoalsRepo } from "@/modules/profile/ProfileGoalsRepo";
+import { ProfilesRepo } from "@/infrastructure/repositories/ProfilesRepo";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
 
 const goalsSchema = z.object({
   primaryGoal: z.string(),
@@ -13,60 +13,46 @@ const goalsSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const userId = await requireAuth(req).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: req });
+  }
+
+  const json = await req.json().catch(() => null);
+  const parsed = goalsSchema.safeParse(json);
+  if (!parsed.success) {
+    return jsonError("VALIDATION_ERROR", { request: req, details: parsed.error.flatten() });
+  }
+
   try {
-    const userId = await requireAuth(req);
-
-    const json = await req.json().catch(() => null);
-    const parse = goalsSchema.safeParse(json);
-    if (!parse.success) return NextResponse.json({ error: parse.error.flatten() }, { status: 400 });
-
-    const repo = new ProfileGoalsRepo();
-    // Instead of calling repo.saveGoals directly, update the profile's prefs
-    const { data, error } = await supabaseAdmin() // Gọi supabaseAdmin như một hàm
-      .from('profiles')
-      .update({ prefs: { goals: parse.data } }) // Store goals within prefs
-      .eq('id', userId)
-      .select('prefs')
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return NextResponse.json({ ok: true, data: data.prefs?.goals || parse.data }, { status: 200 });
-  } catch (error: any) {
-    if (error.message === "Authentication required") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    console.error("Error saving goals:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const repo = new ProfilesRepo();
+    const updated = await repo.update(userId, { prefs: { goals: parsed.data } as any });
+    return jsonSuccess(updated.prefs?.goals ?? parsed.data, {
+      request: req,
+      cacheControl: "no-store",
+    });
+  } catch (error) {
+    console.error("POST /api/profile/goals failed", error);
+    return jsonError("INTERNAL_ERROR", { request: req });
   }
 }
 
 export async function GET(req: NextRequest) {
+  const userId = await requireAuth(req).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: req });
+  }
+
   try {
-    const userId = await requireAuth(req);
-
-    // Fetch goals from the profile's prefs
-    const { data, error } = await supabaseAdmin() // Gọi supabaseAdmin như một hàm
-      .from('profiles')
-      .select('prefs')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return NextResponse.json({ error: "Goals not found" }, { status: 404 });
-      throw error;
+    const repo = new ProfilesRepo();
+    const profile = await repo.getById(userId);
+    const goals = profile?.prefs?.goals;
+    if (!goals) {
+      return jsonError("NOT_FOUND", { request: req, message: "Goals not found." });
     }
-
-    const goals = data.prefs?.goals;
-    if (!goals) return NextResponse.json({ error: "Goals not found" }, { status: 404 }); // If prefs.goals is null/undefined
-    return NextResponse.json({ ok: true, data: goals }, { status: 200 });
-  } catch (error: any) {
-    if (error.message === "Authentication required") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    console.error("Error fetching goals:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonSuccess(goals, { request: req });
+  } catch (error) {
+    console.error("GET /api/profile/goals failed", error);
+    return jsonError("INTERNAL_ERROR", { request: req });
   }
 }

@@ -1,13 +1,13 @@
-# ANORA CloudOps Center — GPT Governance (v1)
+# ASINU CloudOps Center — GPT Governance (v1)
 
 Ngày kích hoạt: 2025-10-08 (ICT)
 
-Mục tiêu: GPT-5 Pro trở thành **IDE + CI/CD + PM** trung tâm của ANORA. Bolt chuyển thành **archive** (không còn quyền deploy).
+Mục tiêu: GPT-5 Pro trở thành **IDE + CI/CD + PM** trung tâm của ASINU. Bolt chuyển thành **archive** (không còn quyền deploy).
 
 ## Thành phần thư mục
 ```
 /ops/        # script deploy/rollback/backup/healthcheck
-/agents/     # cấu hình AgentKit (AnoraOps, AnoraAI)
+/agents/     # cấu hình AgentKit (AsinuOps, AsinuAI)
 /archive/    # lưu trữ tài liệu/flow cũ từ Bolt (read-only)
 QA_SMOKE.md  # checklist kiểm thử sau deploy
 PROMPT_GUIDE.md  # quy ước #boltprompt nội bộ

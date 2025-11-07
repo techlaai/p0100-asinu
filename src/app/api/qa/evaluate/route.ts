@@ -130,8 +130,8 @@ const findings = failedItems.map((item: any) => `${item.title}: ${item.details}`
 if (failedItems?.some((item: { id?: string }) => item.id === "env_vars")) {
   actions.push("Configure missing environment variables");
 }
-if (failedItems?.some((item: { id?: string }) => item.id === "supabase_connection")) {
-  actions.push("Verify Supabase credentials and network connectivity");
+if (failedItems?.some((item: { id?: string }) => item.id === "database_connection")) {
+  actions.push("Verify database credentials and network connectivity");
 }
     if (failedItems?.some((item: { id?: string }) => item.id === "api_health")) {
       actions.push("Check API Gateway deployment and configuration");

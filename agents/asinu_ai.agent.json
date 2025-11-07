@@ -1,5 +1,5 @@
 {
-  "name": "AnoraAI",
+  "name": "AsinuAI",
   "description": "Agent tích hợp AI (meal suggest demo, export PDF/CSV)",
   "triggers": [
     "manual"

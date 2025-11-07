@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/getUserId';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { query } from '@/lib/db_client';
 export const dynamic = 'force-dynamic';
 
-type MetricRow = {
+type MetricAccumulator = {
   day: string;
   avg_bg_mgdl: number | null;
   count_bg: number | null;
@@ -24,42 +24,83 @@ function toCSV(rows: Record<string, any>[]) {
 export async function GET(req: NextRequest) {
   try {
     const uid = await requireAuth(req);
-    const sb = supabaseAdmin();
 
-    // Get date range (last 7 days)
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - 7);
 
-    // Fetch metrics_day (aggregated daily data)
-    const { data: metricsData, error: metricsError } = await sb
-      .from('metrics_day')
-      .select('day, avg_bg_mgdl, count_bg, total_water_ml, weight_kg, avg_systolic, avg_diastolic')
-      .eq('user_id', uid)
-      .gte('day', startDate.toISOString().slice(0, 10))
-      .lte('day', endDate.toISOString().slice(0, 10))
-      .order('day', { ascending: true });
+    const startDay = startDate.toISOString().slice(0, 10);
+    const endDay = endDate.toISOString().slice(0, 10);
 
-    if (metricsError) {
-      console.error('Export error (metrics):', metricsError);
-      throw new Error('Failed to fetch metrics data');
+    const metricsResult = await query<{ day: string; metric: string; value: any }>(
+      `SELECT day, metric, value
+       FROM metrics_day
+       WHERE user_id = $1 AND day BETWEEN $2 AND $3
+       ORDER BY day ASC`,
+      [uid, startDay, endDay],
+    );
+
+    const dayMap = new Map<string, MetricAccumulator>();
+
+    for (const row of metricsResult.rows) {
+      const key = row.day;
+      if (!dayMap.has(key)) {
+        dayMap.set(key, {
+          day: key,
+          avg_bg_mgdl: null,
+          count_bg: null,
+          total_water_ml: null,
+          weight_kg: null,
+          avg_systolic: null,
+          avg_diastolic: null,
+        });
+      }
+
+      const acc = dayMap.get(key)!;
+      switch (row.metric) {
+        case 'bg_avg': {
+          const payload = row.value ?? {};
+          acc.avg_bg_mgdl = payload.avg ?? null;
+          acc.count_bg = payload.count ?? null;
+          break;
+        }
+        case 'water_total': {
+          const payload = row.value ?? {};
+          acc.total_water_ml = payload.total_ml ?? null;
+          break;
+        }
+        case 'weight_latest': {
+          const payload = row.value ?? {};
+          acc.weight_kg = payload.weight_kg ?? null;
+          break;
+        }
+        case 'bp_avg': {
+          const payload = row.value ?? {};
+          acc.avg_systolic = payload.sys ?? null;
+          acc.avg_diastolic = payload.dia ?? null;
+          break;
+        }
+        default:
+          break;
+      }
     }
 
-    // If no metrics, fetch raw glucose logs as fallback
-    let rows: MetricRow[] = metricsData ?? [];
+    let rows = Array.from(dayMap.values());
 
     if (!rows.length) {
-      const { data: bgLogs, error: bgError } = await sb
-        .from('glucose_logs')
-        .select('taken_at, value_mgdl')
-        .eq('user_id', uid)
-        .gte('taken_at', startDate.toISOString())
-        .lte('taken_at', endDate.toISOString())
-        .order('taken_at', { ascending: true });
+      const bgResult = await query<{ noted_at: string; value_mgdl: number | null }>(
+        `SELECT noted_at, value_mgdl
+         FROM log_bg
+         WHERE user_id = $1
+           AND noted_at BETWEEN $2 AND $3
+         ORDER BY noted_at ASC`,
+        [uid, startDate.toISOString(), endDate.toISOString()],
+      );
 
-      if (!bgError && bgLogs) {
-        rows = bgLogs.map((log) => ({
-          day: log.taken_at.slice(0, 10),
+      const bgRows = bgResult.rows;
+      if (bgRows.length > 0) {
+        rows = bgRows.map((log) => ({
+          day: log.noted_at.slice(0, 10),
           avg_bg_mgdl: log.value_mgdl ?? null,
           count_bg: 1,
           total_water_ml: 0,
@@ -70,7 +111,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Format data for CSV
     const csvRows = rows.map((r) => ({
       date: r.day ?? '',
       avg_bg: r.avg_bg_mgdl ?? '',
@@ -86,7 +126,7 @@ export async function GET(req: NextRequest) {
     }
 
     const csv = toCSV(csvRows);
-    const filename = `anora_export_${uid.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `asinu_export_${uid.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.csv`;
 
     return new Response(csv, {
       status: 200,

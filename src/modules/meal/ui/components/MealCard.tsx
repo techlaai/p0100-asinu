@@ -1,10 +1,7 @@
 // src/modules/meal/ui/components/MealCard.tsx
 "use client";
 
-import type { Key } from 'react'
-
 type MealCardProps = {
-  key?: Key
   title: string
   tip?: string
   onChoose: () => void | Promise<void>

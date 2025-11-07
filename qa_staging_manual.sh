@@ -1,18 +1,18 @@
 #!/bin/bash
-# ANORA Phase 3 - Manual QA on Staging
+# ASINU Phase 3 - Manual QA on Staging
 # Real-world testing with actual users and data
 
 set -e
 
 # Configuration
-BASE_URL="${BASE_URL:-https://staging.anora.app}"
+BASE_URL="${BASE_URL:-https://staging.asinu.app}"
 TOKEN_U1="${TOKEN_U1:-}"
 TOKEN_U2="${TOKEN_U2:-}"
 
 # Test credentials (for documentation)
-USER1_EMAIL="test1+qa@anora.top"
+USER1_EMAIL="test1+qa@asinu.top"
 USER1_PASS="Qa!23456"
-USER2_EMAIL="test2+qa@anora.top"
+USER2_EMAIL="test2+qa@asinu.top"
 USER2_PASS="Qa!23456"
 
 # Output configuration
@@ -29,7 +29,7 @@ NC='\033[0m'
 
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║                                                           ║"
-echo "║   ANORA MVP v0.9.0 - PHASE 3 MANUAL QA (STAGING)        ║"
+echo "║   ASINU MVP v0.9.0 - PHASE 3 MANUAL QA (STAGING)        ║"
 echo "║                                                           ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo ""
