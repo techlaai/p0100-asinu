@@ -1,11 +1,8 @@
 "use client";
 import React, { useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
 export default function ForgotPasswordPage() {
-  const supabase = createClientComponentClient();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -14,20 +11,21 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setMessage(null);
-    setError(null);
+    try {
+      setLoading(true);
+      setMessage(null);
+      setError(null);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/update-password`,
-    });
-
-    if (error) {
-      setError(error.message);
-    } else {
-      setMessage("Kiểm tra email của bạn để đặt lại mật khẩu.");
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      setMessage(
+        "Tính năng đặt lại mật khẩu sẽ ra mắt sớm. Trong lúc chờ đợi, vui lòng liên hệ support@asinu.top để được hỗ trợ.",
+      );
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      setError("Không thể xử lý yêu cầu ngay lúc này.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

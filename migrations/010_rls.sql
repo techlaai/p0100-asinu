@@ -1,50 +1,53 @@
 -- 010_rls.sql
+-- Configure RLS policies so each session can only access its own user rows.
+
 CREATE OR REPLACE FUNCTION diabot_set_user(uid UUID)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
   PERFORM set_config('diabot.user_id', uid::text, TRUE);
 END;
 $$;
 
-ALTER TABLE profiles      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bg_logs       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bp_logs       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE weight_logs   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE water_logs    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE meal_logs     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE insulin_logs  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE feature_flags ENABLE ROW LEVEL SECURITY;
-ALTER TABLE metrics_day   ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS p_profiles_select ON profiles;
-CREATE POLICY p_profiles_select ON profiles
-  FOR SELECT USING (user_id::text = current_setting('diabot.user_id', true));
-
-DROP POLICY IF EXISTS p_profiles_mod ON profiles;
-CREATE POLICY p_profiles_mod ON profiles
-  USING (user_id::text = current_setting('diabot.user_id', true));
-
 DO $$
-DECLARE r RECORD;
+DECLARE
+  tbl TEXT;
+  tables TEXT[] := ARRAY[
+    'app_user',
+    'user_settings',
+    'log_meal',
+    'log_bg',
+    'log_bp',
+    'log_weight',
+    'log_water',
+    'log_insulin',
+    'log_activity',
+    'log_sleep',
+    'metrics_day',
+    'metrics_week',
+    'media_file'
+  ];
 BEGIN
-  FOR r IN
-    SELECT unnest(ARRAY['bg_logs','bp_logs','weight_logs','water_logs','meal_logs','insulin_logs','feature_flags','metrics_day']) AS tbl
-  LOOP
+  FOREACH tbl IN ARRAY tables LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+
     EXECUTE format('
       DROP POLICY IF EXISTS p_%1$s_select ON %1$s;
       CREATE POLICY p_%1$s_select ON %1$s
         FOR SELECT USING (
-          EXISTS (SELECT 1 FROM profiles p
-                  WHERE p.id = %1$s.profile_id
-                  AND p.user_id::text = current_setting(''diabot.user_id'', true))
+          %1$s.user_id::text = current_setting(''diabot.user_id'', true)
         );
+
       DROP POLICY IF EXISTS p_%1$s_mod ON %1$s;
       CREATE POLICY p_%1$s_mod ON %1$s
-        USING (
-          EXISTS (SELECT 1 FROM profiles p
-                  WHERE p.id = %1$s.profile_id
-                  AND p.user_id::text = current_setting(''diabot.user_id'', true))
+        FOR ALL USING (
+          %1$s.user_id::text = current_setting(''diabot.user_id'', true)
+        )
+        WITH CHECK (
+          %1$s.user_id::text = current_setting(''diabot.user_id'', true)
         );
-    ', r.tbl);
+    ', tbl);
   END LOOP;
 END$$;

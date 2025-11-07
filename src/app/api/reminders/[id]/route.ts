@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getServerClient } from '@/lib/supabase/admin';
+import { requireAuth } from '@/lib/auth/getUserId';
 
 const store = (global as any).__reminders__ ?? new Map<string, any[]>();
 (global as any).__reminders__ = store;
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const supabase = getServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const uid = user?.id ?? 'demo';
+  const uid = (await requireAuth().catch(() => null)) ?? 'demo';
   const list = store.get(uid) ?? [];
   const idx = list.findIndex((x: any) => x.id === params.id);
   if (idx < 0) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
@@ -18,9 +16,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const supabase = getServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const uid = user?.id ?? 'demo';
+  const uid = (await requireAuth().catch(() => null)) ?? 'demo';
   const list = store.get(uid) ?? [];
   const next = list.filter((x: any) => x.id !== params.id);
   store.set(uid, next);

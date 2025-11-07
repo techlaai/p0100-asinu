@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/getUserId';
-import { generateRequestId, trackPreferenceChanged } from '@/lib/analytics/eventTracker';
-import { ProfilesRepo } from '@/infrastructure/repositories/ProfilesRepo';
-import { extractPersonaPrefs, type PersonaPrefs } from '@/modules/ai/persona';
-import { z } from 'zod';
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { requireAuth } from "@/lib/auth/getUserId";
+import { trackPreferenceChanged } from "@/lib/analytics/eventTracker";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
+import { ensureRequestId } from "@/lib/logging/request_id";
+import { ProfilesRepo } from "@/infrastructure/repositories/ProfilesRepo";
+import { extractPersonaPrefs, type PersonaPrefs } from "@/modules/ai/persona";
 export const dynamic = 'force-dynamic';
 
 /**
@@ -34,50 +36,46 @@ const prefsSchema = z.object({
 
 export async function PUT(request: NextRequest) {
   const startTime = Date.now();
-  const requestId = generateRequestId();
+  const requestId = ensureRequestId(request);
+  const userId = await requireAuth(request).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: request, requestId });
+  }
+
+  const body = await request.json().catch(() => null);
+  const validation = prefsSchema.safeParse(body);
+  if (!validation.success) {
+    return jsonError("VALIDATION_ERROR", {
+      request: request,
+      requestId,
+      details: validation.error.flatten(),
+    });
+  }
 
   try {
-    const userId = await requireAuth(request);
-    const body = await request.json();
-
-    // Validate input
-    const validation = prefsSchema.safeParse(body);
-    if (!validation.success) {
-      return NextResponse.json({
-        error: 'Invalid preferences',
-        details: validation.error.flatten()
-      }, { status: 400 });
-    }
-
     const updates = validation.data;
-
-    // Fetch current profile
     const profilesRepo = new ProfilesRepo();
     const profile = await profilesRepo.getById(userId);
 
     if (!profile) {
-      return NextResponse.json({
-        error: 'Profile not found'
-      }, { status: 404 });
+      return jsonError("NOT_FOUND", {
+        request: request,
+        requestId,
+        message: "Profile not found.",
+      });
     }
 
-    // Extract current prefs
     const currentPrefs = extractPersonaPrefs(profile.prefs);
-
-    // Merge with updates
     const newPrefs: PersonaPrefs = {
       ai_persona: updates.ai_persona ?? currentPrefs.ai_persona,
       guidance_level: updates.guidance_level ?? currentPrefs.guidance_level,
-      low_ask_mode: updates.low_ask_mode ?? currentPrefs.low_ask_mode
+      low_ask_mode: updates.low_ask_mode ?? currentPrefs.low_ask_mode,
     };
 
-    // Update profile
-    const storedPrefs: Record<string, unknown> = { ...newPrefs };
     await profilesRepo.update(userId, {
-      prefs: storedPrefs
+      prefs: { ...newPrefs },
     });
 
-    // Track preference changes
     (Object.keys(updates) as Array<keyof PersonaPrefs>).forEach((key) => {
       const value = updates[key];
       const previous = currentPrefs[key];
@@ -85,36 +83,32 @@ export async function PUT(request: NextRequest) {
         trackPreferenceChanged(userId, requestId, {
           preference_key: key,
           old_value: previous,
-          new_value: value
-        }).catch(err => console.error('Failed to track preference change:', err));
+          new_value: value,
+        }).catch((err) => console.error("Failed to track preference change:", err));
       }
     });
 
-    // Console log for monitoring
     console.info({
       request_id: requestId,
       user_id: userId,
       updates,
-      response_time_ms: Date.now() - startTime
+      response_time_ms: Date.now() - startTime,
     });
 
-    return NextResponse.json({
-      success: true,
-      prefs: newPrefs,
-      meta: {
-        request_id: requestId,
-        time: new Date().toISOString(),
-        response_time_ms: Date.now() - startTime
-      }
-    });
-
+    return jsonSuccess(
+      {
+        prefs: newPrefs,
+        meta: {
+          request_id: requestId,
+          time: new Date().toISOString(),
+          response_time_ms: Date.now() - startTime,
+        },
+      },
+      { request: request, requestId, cacheControl: "no-store" },
+    );
   } catch (error) {
-    console.error('Error in /api/profile/personality:', error);
-
-    return NextResponse.json({
-      error: 'Failed to update preferences',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error("Error in /api/profile/personality:", error);
+    return jsonError("INTERNAL_ERROR", { request: request, requestId });
   }
 }
 
@@ -124,33 +118,37 @@ export async function PUT(request: NextRequest) {
  * Get user's current AI persona preferences
  */
 export async function GET(request: NextRequest) {
-  try {
-    const userId = await requireAuth(request);
+  const requestId = ensureRequestId(request);
+  const userId = await requireAuth(request).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: request, requestId });
+  }
 
+  try {
     const profilesRepo = new ProfilesRepo();
     const profile = await profilesRepo.getById(userId);
 
     if (!profile) {
-      return NextResponse.json({
-        error: 'Profile not found'
-      }, { status: 404 });
+      return jsonError("NOT_FOUND", {
+        request: request,
+        requestId,
+        message: "Profile not found.",
+      });
     }
 
     const prefs = extractPersonaPrefs(profile.prefs);
 
-    return NextResponse.json({
-      prefs,
-      meta: {
-        time: new Date().toISOString()
-      }
-    });
-
+    return jsonSuccess(
+      {
+        prefs,
+        meta: {
+          time: new Date().toISOString(),
+        },
+      },
+      { request: request, requestId },
+    );
   } catch (error) {
-    console.error('Error in GET /api/profile/personality:', error);
-
-    return NextResponse.json({
-      error: 'Failed to get preferences',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error("Error in GET /api/profile/personality:", error);
+    return jsonError("INTERNAL_ERROR", { request: request, requestId });
   }
 }

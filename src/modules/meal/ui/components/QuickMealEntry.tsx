@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Button from '@/interfaces/ui/components/atoms/Button';
 import { cn } from '@/lib/utils';
+import { apiFetch, ApiError } from "@/lib/http";
 
 interface MealSuggestion {
   id: string;
@@ -19,7 +20,6 @@ interface MealSuggestion {
 interface QuickMealEntryProps {
   mealType: 'breakfast' | 'lunch' | 'dinner';
   onSelect: (suggestion: MealSuggestion) => void;
-  userId: string;
   className?: string;
 }
 
@@ -33,7 +33,6 @@ interface QuickMealEntryProps {
 export default function QuickMealEntry({
   mealType,
   onSelect,
-  userId,
   className
 }: QuickMealEntryProps) {
   const [suggestions, setSuggestions] = useState<MealSuggestion[]>([]);
@@ -43,32 +42,28 @@ export default function QuickMealEntry({
 
   useEffect(() => {
     fetchSuggestions();
-  }, [mealType, userId]);
+  }, [mealType]);
 
   async function fetchSuggestions() {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `/api/meal/suggest?mealType=${mealType}`,
-        {
-          headers: {
-            'x-debug-user-id': userId
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch suggestions');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch<{
+        suggestions: MealSuggestion[];
+        copy_yesterday: MealSuggestion | null;
+      }>(`/api/meal/suggest?mealType=${mealType}`);
       setSuggestions(data.suggestions || []);
       setCopyYesterday(data.copy_yesterday);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching suggestions:', err);
-      setError(err.message);
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Không thể tải gợi ý.';
+      setError(message);
     } finally {
       setLoading(false);
     }

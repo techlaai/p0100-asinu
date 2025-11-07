@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { generateMock } from "./dev/mockModel";
 import { getFeatureFlag } from "../../../config/feature-flags"; // Import getFeatureFlag
 
@@ -77,7 +78,7 @@ export async function callLLM(opts: {
     throw new Error("AI_DISABLED: OPENAI_API_KEY is not set.");
   }
 
-  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+  const messages: ChatCompletionMessageParam[] = [
     ...(system ? [{ role: "system" as const, content: system }] : []),
     { role: "user" as const, content: prompt },
   ];

@@ -1,12 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Card from "@/interfaces/ui/components/atoms/Card";
-import Button from "@/interfaces/ui/components/atoms/Button";
 import Image from "next/image";
+import Card from "@/interfaces/ui/components/atoms/Card";
 import ChatOverlay from "@/interfaces/ui/components/ChatOverlay";
-import { supabase } from "@/lib/supabase/client";
+import { apiFetch, ApiError } from "@/lib/http";
 
 export default function Dashboard() {
   const [chatOpen, setChatOpen] = useState(false);
@@ -14,13 +12,32 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const name = user.user_metadata?.display_name || user.email?.split('@')[0] || "bạn";
-        setDisplayName(name);
+      try {
+        const session = await apiFetch<{
+          user_id: string;
+          display_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+        }>("/api/auth/session", { cache: "no-store" });
+        if (cancelled) return;
+        const nameCandidate =
+          session.display_name ||
+          session.email?.split("@")[0] ||
+          session.phone ||
+          "bạn";
+        setDisplayName(nameCandidate);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          return;
+        }
+        console.warn("Failed to load session", error);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const goChart = () => router.push("/chart");
@@ -139,7 +156,7 @@ export default function Dashboard() {
         title="Trò chuyện với DIABOT"
       >
         <img
-          src="/assets/anora.png"
+          src="/assets/asinu.png"
           alt="DIABOT"
           width={180}
           height={180}

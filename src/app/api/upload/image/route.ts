@@ -1,56 +1,112 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { v4 as uuidv4Type } from 'uuid';
+import nodeCrypto from "crypto";
+import { NextRequest } from "next/server";
+import { loadS3Config, s3UploadObject } from "@/lib/storage/s3_client";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
 
-// Simple UUID generator fallback
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const SIGNED_URL_TTL_SECONDS = 600;
+
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!; // Or service role key if uploading from server
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+function getViewTokenSecret(): string | null {
+  return process.env.AUTH_SECRET ?? null;
+}
+
+function createViewToken(key: string, ttlSeconds: number, secret: string): string {
+  const payload = {
+    key,
+    exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+  };
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = nodeCrypto.createHmac("sha256", secret).update(body).digest("base64url");
+  return `${body}.${signature}`;
+}
+
+function buildSignedUrl(req: NextRequest, token: string): string {
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const host = forwardedHost ?? req.headers.get("host") ?? new URL(req.url).host;
+  const protocol = forwardedProto ?? (req.headers.get("host")?.includes("localhost") ? "http" : "https");
+  return `${protocol}://${host}/api/upload/image/view?token=${encodeURIComponent(token)}`;
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const config = loadS3Config();
+    if (!config) {
+      return jsonError("STORAGE_UNAVAILABLE", {
+        request: req,
+        message: "Cấu hình lưu trữ tạm thời không khả dụng.",
+      });
+    }
+
     const formData = await req.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json({ ok: false, error: 'No file uploaded' }, { status: 400 });
-    }
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${generateUUID()}.${fileExt}`;
-    const filePath = `meal_images/${fileName}`; // Define your storage path
-
-    const { data, error } = await supabase.storage
-      .from('meal_photos') // Replace with your Supabase Storage bucket name
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type,
+      return jsonError("VALIDATION_ERROR", {
+        request: req,
+        message: "Thiếu tệp upload.",
       });
-
-    if (error) {
-      console.error('Supabase upload error:', error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('meal_photos')
-      .getPublicUrl(filePath);
+    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+      return jsonError("UNSUPPORTED_MEDIA_TYPE", {
+        request: req,
+        message: "Định dạng ảnh không được hỗ trợ.",
+      });
+    }
 
-    return NextResponse.json({ ok: true, url: publicUrlData.publicUrl }, { status: 200 });
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return jsonError("PAYLOAD_TOO_LARGE", {
+        request: req,
+        message: "Ảnh vượt quá kích thước tối đa 10MB.",
+      });
+    }
 
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${generateUUID()}.${fileExt}`;
+    const filePath = `meal_images/${fileName}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    await s3UploadObject(config, filePath, buffer, file.type);
+    const tokenSecret = getViewTokenSecret();
+    if (!tokenSecret) {
+      return jsonError("STORAGE_UNAVAILABLE", {
+        request: req,
+        message: "Cấu hình lưu trữ tạm thời không khả dụng.",
+      });
+    }
+
+    const token = createViewToken(filePath, SIGNED_URL_TTL_SECONDS, tokenSecret);
+    const signedUrl = buildSignedUrl(req, token);
+
+    return jsonSuccess(
+      { key: filePath, signed_url: signedUrl, expires_in: SIGNED_URL_TTL_SECONDS },
+      { request: req, cacheControl: "no-store" },
+    );
   } catch (error: any) {
-    console.error('Upload API error:', error);
-    return NextResponse.json({ ok: false, error: error.message || 'Internal server error' }, { status: 500 });
+    if (error?.message?.startsWith("S3_UPLOAD_FAILED")) {
+      console.error("[upload/image] S3 upload failed:", error.message);
+      return jsonError("STORAGE_UNAVAILABLE", {
+        request: req,
+        message: "Không thể lưu trữ ảnh vào lúc này.",
+      });
+    }
+    console.error("Upload API error:", error);
+    return jsonError("INTERNAL_ERROR", {
+      request: req,
+      message: error?.message || "Upload thất bại.",
+    });
   }
 }
-

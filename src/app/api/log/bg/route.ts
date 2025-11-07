@@ -1,61 +1,82 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
-import { getPool } from '@/lib/db_client'
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import type { GlucoseContext } from "@/domain/types";
+import { getPool } from "@/lib/db_client";
+import { requireAuth } from "@/lib/auth/getUserId";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
 
-export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
-export const revalidate = 0
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const revalidate = 0;
+
+const ALLOWED_CONTEXT: GlucoseContext[] = ['fasting', 'pre_meal', 'post_meal', 'random'];
 
 const BodySchema = z.object({
-  profile_id: z.string().uuid(),
   value: z.number(),
-  unit: z.string().min(1),
-  ts: z.string().datetime({ offset: true }),
-  context: z.string().optional(),
-  note: z.string().optional(),
-})
+  unit: z.enum(["mgdl", "mg/dl", "mmol", "mmol/l"]).default("mgdl"),
+  noted_at: z.string().datetime({ offset: true }).optional(),
+  context: z.enum(ALLOWED_CONTEXT).optional(),
+  notes: z.string().max(2000).optional(),
+  meal_id: z.number().int().positive().optional(),
+});
+
+function normalizeUnit(unit: string) {
+  if (unit.toLowerCase() === 'mmol' || unit.toLowerCase() === 'mmol/l') return 'mmol';
+  return 'mgdl';
+}
+
+function toMgdl(value: number, unit: string): number {
+  const normalized = normalizeUnit(unit);
+  if (normalized === 'mmol') {
+    return Number((value * 18).toFixed(1));
+  }
+  return Number(value.toFixed(1));
+}
 
 export async function POST(request: NextRequest) {
-  // 1) Header APP_KEY (double-guard, phòng middleware bị bỏ qua)
-  const expected = process.env.APP_KEY
-  if (expected && request.headers.get('x-app-key') !== expected) {
-    return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 })
+  const userId = await requireAuth(request).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: request });
   }
 
-  // 2) Parse body
-  let payload: unknown
-  try {
-    payload = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'invalid_body' }, { status: 400, headers: { 'Content-Type': 'application/json' } })
-  }
-  const parsed = BodySchema.safeParse(payload)
+  const payload = await request.json().catch(() => null);
+  const parsed = BodySchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid_body' }, { status: 400, headers: { 'Content-Type': 'application/json' } })
-  }
-  const { profile_id, value, unit, ts, context, note } = parsed.data
-
-  // 3) Allowlist profile_id (MVP)
-  const allow = new Set(
-    (process.env.PROFILE_ID_ALLOWLIST || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean),
-  )
-  if (allow.size === 0) allow.add('9c913921-9fc6-41cc-a45f-ea05a0f34f2a')
-  if (!allow.has(profile_id)) {
-    return NextResponse.json({ ok: false, error: 'forbidden_profile' }, { status: 403 })
+    return jsonError("VALIDATION_ERROR", {
+      request: request,
+      details: parsed.error.flatten(),
+    });
   }
 
-  // 4) Ghi DB (khởi tạo pool TRONG handler)
-  const db = getPool()
-  const tsDate = new Date(ts)
-  const res = await db.query<{ id: string }>(
-    `INSERT INTO bg_logs (profile_id, value, unit, context, note, ts, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6, now())
-     RETURNING id`,
-    [profile_id, value, unit, context ?? null, note ?? null, tsDate.toISOString()],
-  )
+  const notedAtIso = parsed.data.noted_at ?? new Date().toISOString();
+  const valueMgdl = toMgdl(parsed.data.value, parsed.data.unit);
 
-  return NextResponse.json({ ok: true, id: res.rows[0]?.id ?? null }, { status: 201 })
+  try {
+    const db = getPool();
+    const result = await db.query<{ id: number }>(
+      `INSERT INTO log_bg (user_id, value_mgdl, context, notes, meal_id, noted_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+       RETURNING id`,
+      [
+        userId,
+        valueMgdl,
+        parsed.data.context ?? null,
+        parsed.data.notes ?? null,
+        parsed.data.meal_id ?? null,
+        notedAtIso,
+      ],
+    );
+
+    return jsonSuccess(
+      {
+        id: result.rows[0]?.id ?? null,
+        user_id: userId,
+        noted_at: notedAtIso,
+      },
+      { request: request, cacheControl: "no-store", status: 201 },
+    );
+  } catch (error) {
+    console.error("POST /api/log/bg failed", error);
+    return jsonError("INTERNAL_ERROR", { request: request });
+  }
 }

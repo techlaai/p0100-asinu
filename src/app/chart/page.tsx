@@ -2,8 +2,22 @@
 import React from "react";
 import Link from "next/link";
 import ChartPage from "@/modules/chart/ui/ChartPage";
-import { ChevronLeft } from 'lucide-react'; // Thêm import này
 import AuthGate from '@/interfaces/ui/components/AuthGate'; // Thêm dòng này
+
+const BackArrowIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M15 18l-6-6 6-6" />
+  </svg>
+);
 
 export default function Page() {
   return (
@@ -16,7 +30,7 @@ export default function Page() {
             aria-label="Quay lại"
             className="inline-flex items-center justify-center w-9 h-9 rounded-full border hover:bg-gray-50"
           >
-            <ChevronLeft size={20} /> {/* Sử dụng icon ChevronLeft */}
+            <BackArrowIcon width={20} height={20} /> {/* Sử dụng icon ChevronLeft */}
           </button>
           <h1 className="text-lg font-semibold text-gray-800">Biểu đồ tổng hợp</h1> {/* Đảm bảo màu chữ */}
         </div>

@@ -1,6 +1,6 @@
 #!/bin/bash
 # create-release-tag.sh
-# Script to create and push release tag for Anora deployment
+# Script to create and push release tag for Asinu deployment
 # Usage: ./scripts/create-release-tag.sh
 
 set -e
@@ -10,7 +10,7 @@ VERSION="0.9.0"
 IMAGE_NAME="ghcr.io/diabotai/diabot:release-2025-10-07"
 
 echo "=========================================="
-echo "Anora Release Tag Creator"
+echo "Asinu Release Tag Creator"
 echo "=========================================="
 echo "Release Tag: $RELEASE_TAG"
 echo "Version: $VERSION"

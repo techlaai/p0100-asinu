@@ -1,5 +1,6 @@
-'use client';
-import { useState } from 'react';
+"use client";
+import { useState } from "react";
+import { apiFetch, ApiError } from "@/lib/http";
 
 export default function MealForm({ onSaved }: { onSaved?: () => void }) {
   const [text, setText] = useState('');
@@ -10,50 +11,53 @@ export default function MealForm({ onSaved }: { onSaved?: () => void }) {
 
   const submit = async () => {
     if (!text.trim() && !file) {
-      setToast({message: 'Vui lòng nhập mô tả hoặc chọn ảnh', type: 'error'});
+      setToast({ message: "Vui lòng nhập mô tả hoặc chọn ảnh", type: "error" });
       return;
     }
 
     setLoading(true);
-    let image_url = '';
-    if (file) {
-      const fd = new FormData();
-      fd.append('file', file);
-      const up = await fetch('/api/upload/image', { method: 'POST', body: fd }).then(r=>r.json());
-      if (!up.ok) {
-        setToast({message: 'Upload ảnh lỗi', type: 'error'});
-        setLoading(false);
-        return;
+    try {
+      let imageUrl = "";
+      if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const upload = await apiFetch<{ key: string; signed_url?: string }>(
+          "/api/upload/image",
+          { method: "POST", body: fd },
+        );
+        imageUrl = upload.signed_url || "";
       }
-      image_url = up.url;
-    }
-    
-    // Gọi endpoint mới với payload đầy đủ
-    const payload = {
-      meal_type: 'snack',
-      ts: new Date().toISOString(),
-      text: text.trim() || undefined,
-      portion,
-      image_url: image_url || undefined,
-    };
 
-    const res = await fetch('/api/log/meal', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload) 
-    });
-    
-    const result = await res.json();
-    if (!res.ok) {
-      setToast({message: `Lỗi: ${result.error?.message || 'Unknown'}`, type: 'error'});
+      const payload = {
+        meal_type: "snack",
+        noted_at: new Date().toISOString(),
+        text: text.trim() || undefined,
+        portion,
+        image_url: imageUrl || undefined,
+      };
+
+      await apiFetch("/api/log/meal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      setToast({ message: "Đã lưu bữa ăn!", type: "success" });
+      setText("");
+      setPortion("medium");
+      setFile(null);
+      setTimeout(() => onSaved?.(), 1000);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Không thể lưu bữa ăn.";
+      setToast({ message: `Lỗi: ${message}`, type: "error" });
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setToast({message: 'Đã lưu bữa ăn!', type: 'success'});
-    setText(''); setPortion('medium'); setFile(null);
-    setLoading(false);
-    setTimeout(() => onSaved?.(), 1000);
   };
 
   return (

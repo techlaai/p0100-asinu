@@ -1,2 +1,1 @@
-export { supabaseAdmin } from '@/lib/supabase/admin';
-export { getServerClient } from '@/lib/supabase/admin';
+export { getPool, query } from '@/lib/db_client';

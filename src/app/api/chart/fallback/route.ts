@@ -1,18 +1,22 @@
-import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/getUserId";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
+import { ensureRequestId } from "@/lib/logging/request_id";
 import { buildDemoChartVM } from "@/modules/chart/infrastructure/adapters/DemoData";
+import { query } from "@/lib/db_client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
-  try {
-    // Require authentication
-    await requireAuth(req);
+  const requestId = ensureRequestId(req);
+  const userId = await requireAuth(req).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: req, requestId });
+  }
 
-    // Always return 200 with fallback data
+  try {
     const demo7d = buildDemoChartVM("7d");
     const demo30d = buildDemoChartVM("30d");
 
@@ -39,57 +43,37 @@ export async function GET(req: NextRequest) {
       meals_count: day.meals_count
     }));
 
-    // Determine source based on Supabase availability
+    // Determine source based on database availability
     let source = "demo";
-    const hasSupabaseEnv = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (hasSupabaseEnv) {
-      try {
-        // Try to connect to Supabase to see if it's available
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-
-        // Test connection with a simple query
-        const { error } = await supabase.from("profiles").select("id").limit(1);
-        if (!error) {
-          source = "supabase";
-        }
-      } catch (e) {
-        // If Supabase connection fails, keep source as "demo"
-        console.warn("Supabase connection failed, using demo data:", e);
-      }
+    try {
+      await query("SELECT 1");
+      source = "database";
+    } catch (e) {
+      console.warn("Database connection check failed, using demo data:", e);
     }
 
-    return NextResponse.json({
-      series7,
-      series30,
-      source
-    }, {
-      status: 200,
-      headers: { "Cache-Control": "no-store" }
-    });
+    return jsonSuccess(
+      {
+        series7,
+        series30,
+        source,
+      },
+      { request: req, requestId, cacheControl: "no-store" },
+    );
 
-  } catch (error: any) {
-    if (error.message === "Authentication required") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Even on error, return 200 with demo data as per spec
+  } catch (error) {
     console.error("Error in /api/chart/fallback:", error);
 
     const demo7d = buildDemoChartVM("7d");
     const demo30d = buildDemoChartVM("30d");
 
-    return NextResponse.json({
-      series7: demo7d.days,
-      series30: demo30d.days,
-      source: "demo"
-    }, {
-      status: 200,
-      headers: { "Cache-Control": "no-store" }
-    });
+    return jsonSuccess(
+      {
+        series7: demo7d.days,
+        series30: demo30d.days,
+        source: "demo",
+      },
+      { request: req, requestId, cacheControl: "no-store" },
+    );
   }
 }

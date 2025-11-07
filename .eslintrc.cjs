@@ -3,7 +3,7 @@ module.exports = {
   extends: ['next', 'next/core-web-vitals', 'plugin:@typescript-eslint/recommended'],
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint'],
-  parserOptions: { tsconfigRootDir: __dirname, project: ['./tsconfig.json'] },
+  parserOptions: { tsconfigRootDir: __dirname, project: ['./tsconfig.eslint.json'] },
   rules: {
     'prefer-const': 'warn',
     '@typescript-eslint/no-empty-object-type': 'warn',

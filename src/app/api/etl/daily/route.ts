@@ -1,9 +1,9 @@
 // src/app/api/etl/daily/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase/admin"; // Đã sửa import
 import { getUserId } from "@/lib/auth/getUserId";
 import { format, startOfDay, endOfDay } from "date-fns";
+import { query } from "@/lib/db_client";
 
 // ✅ để Next không cố prerender / không tĩnh hoá
 export const dynamic = "force-dynamic";
@@ -35,68 +35,71 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Khoảng ngày
+
     const targetDay = day || format(new Date(), "yyyy-MM-dd");
     const startTime = startOfDay(new Date(targetDay)).toISOString();
     const endTime = endOfDay(new Date(targetDay)).toISOString();
 
-    // Khởi tạo client trong handler (tránh side-effect top-level)
-    const sb = supabaseAdmin(); // Gọi supabaseAdmin như một hàm
-
     // ---------- Aggregate glucose ----------
     let glucoseProcessed = 0;
     {
-      const { data: glucoseLogs, error } = await sb
-        .from("glucose_logs")
-        .select("value_mgdl")
-        .eq("user_id", effectiveUserId)
-        .gte("taken_at", startTime)
-        .lte("taken_at", endTime);
+      const glucoseResult = await query<{ value_mgdl: number }>(
+        `SELECT value_mgdl
+         FROM log_bg
+         WHERE user_id = $1 AND noted_at BETWEEN $2 AND $3`,
+        [effectiveUserId, startTime, endTime],
+      );
 
-      if (error) {
-        console.error("Supabase glucose select error:", error);
-      } else if (glucoseLogs && glucoseLogs.length) {
-        const values = glucoseLogs.map((x) => x.value_mgdl);
+      const glucoseRows = glucoseResult.rows;
+      if (glucoseRows.length > 0) {
+        const values = glucoseRows.map((x) => x.value_mgdl);
         const avg = values.reduce((a, b) => a + b, 0) / values.length;
         const min = Math.min(...values);
         const max = Math.max(...values);
         glucoseProcessed = values.length;
 
-        const { error: upsertErr } = await sb.from("metrics_day").upsert({
-          user_id: effectiveUserId,
-          day: targetDay,
-          metric: "bg_avg",
-          value: { avg: Math.round(avg), min, max, count: values.length },
-          updated_at: new Date().toISOString(),
-        });
-        if (upsertErr) console.error("metrics_day upsert (bg_avg) error:", upsertErr);
+        await query(
+          `INSERT INTO metrics_day (user_id, day, metric, value, updated_at)
+           VALUES ($1, $2, $3, $4::jsonb, now())
+           ON CONFLICT (user_id, day, metric)
+           DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+          [
+            effectiveUserId,
+            targetDay,
+            "bg_avg",
+            JSON.stringify({ avg: Math.round(avg), min, max, count: values.length }),
+          ],
+        );
       }
     }
 
     // ---------- Aggregate water ----------
     let waterProcessed = 0;
     {
-      const { data: waterLogs, error } = await sb
-        .from("water_logs")
-        .select("amount_ml")
-        .eq("user_id", effectiveUserId)
-        .gte("taken_at", startTime)
-        .lte("taken_at", endTime);
+      const waterResult = await query<{ volume_ml: number }>(
+        `SELECT volume_ml
+         FROM log_water
+         WHERE user_id = $1 AND noted_at BETWEEN $2 AND $3`,
+        [effectiveUserId, startTime, endTime],
+      );
 
-      if (error) {
-        console.error("Supabase water select error:", error);
-      } else if (waterLogs && waterLogs.length) {
-        const total = waterLogs.reduce((sum, x) => sum + x.amount_ml, 0);
-        waterProcessed = waterLogs.length;
+      const waterRows = waterResult.rows;
+      if (waterRows.length > 0) {
+        const total = waterRows.reduce((sum, x) => sum + Number(x.volume_ml ?? 0), 0);
+        waterProcessed = waterRows.length;
 
-        const { error: upsertErr } = await sb.from("metrics_day").upsert({
-          user_id: effectiveUserId,
-          day: targetDay,
-          metric: "water_total",
-          value: { total_ml: total, count: waterLogs.length },
-          updated_at: new Date().toISOString(),
-        });
-        if (upsertErr) console.error("metrics_day upsert (water_total) error:", upsertErr);
+        await query(
+          `INSERT INTO metrics_day (user_id, day, metric, value, updated_at)
+           VALUES ($1, $2, $3, $4::jsonb, now())
+           ON CONFLICT (user_id, day, metric)
+           DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+          [
+            effectiveUserId,
+            targetDay,
+            "water_total",
+            JSON.stringify({ total_ml: total, count: waterRows.length }),
+          ],
+        );
       }
     }
 

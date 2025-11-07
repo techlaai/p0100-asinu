@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  diabot:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
@@ -16,28 +16,36 @@ services:
       - PORT=3000
     restart: unless-stopped
     depends_on:
-      db:
+      asinu-postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/qa/selftest"]
+      test: ["CMD-SHELL", "wget -qO- http://$$HOSTNAME:3000/api/qa/selftest >/dev/null"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
+    networks:
+      - asinu-network
 
   # Native Postgres service (replaces Supabase runtime)
-  db:
+  asinu-postgres:
     image: postgres:15
-    container_name: diabot-db
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: diabot
+      POSTGRES_PASSWORD: VeryStrongPassword!
+      POSTGRES_DB: diabotdb
+      PGPASSWORD: VeryStrongPassword!
     volumes:
       - ./data/db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d diabot"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d diabotdb"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - asinu-network
+
+networks:
+  asinu-network:
+    driver: bridge

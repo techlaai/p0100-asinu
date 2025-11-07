@@ -1,39 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-
+import { NextRequest } from "next/server";
+import { requireAuth } from "@/lib/auth/getUserId";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
 import { query } from "@/lib/db_client";
 
-const profileIdSchema = z.string().uuid();
-
 export async function GET(request: NextRequest) {
-  const profileIdParam = request.nextUrl.searchParams.get("profile_id");
-  const validatedProfileId = profileIdSchema.safeParse(profileIdParam);
-
-  if (!validatedProfileId.success) {
-    return NextResponse.json(
-      { error: "invalid_profile_id" },
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
+  const userId = await requireAuth(request).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: request });
   }
 
   try {
     const result = await query<{ day: string | Date; avg_bg: number | null }>(
       `
         SELECT
-          date_trunc('day', ts)::date AS day,
-          AVG(value)::float AS avg_bg
-        FROM bg_logs
-        WHERE profile_id = $1 AND ts >= now() - interval '7 days'
+          date_trunc('day', noted_at)::date AS day,
+          AVG(value_mgdl)::float AS avg_bg
+        FROM log_bg
+        WHERE user_id = $1 AND noted_at >= now() - interval '7 days'
         GROUP BY 1
         ORDER BY 1 ASC;
       `,
-      [validatedProfileId.data]
+      [userId],
     );
 
-    const data = result.rows.map(row => ({
+    const data = result.rows.map((row) => ({
       day:
         row.day instanceof Date
           ? row.day.toISOString().slice(0, 10)
@@ -41,22 +31,12 @@ export async function GET(request: NextRequest) {
       avg_bg:
         row.avg_bg === null || row.avg_bg === undefined
           ? null
-          : Number(row.avg_bg)
+          : Number(row.avg_bg),
     }));
 
-    return NextResponse.json(data, {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    });
+    return jsonSuccess(data, { request: request });
   } catch (err) {
     console.error("[api/chart/7d]", err);
-
-    return NextResponse.json(
-      { error: "db_error" },
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
+    return jsonError("INTERNAL_ERROR", { request: request });
   }
 }

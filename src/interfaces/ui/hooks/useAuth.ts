@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { apiFetch, ApiError } from "@/lib/http";
 
 interface User {
   id: string;
-  email: string;
+  email: string | null;
   emailVerified: boolean;
 }
 
@@ -23,30 +24,36 @@ export function useAuth(): UseAuthState {
 
     async function checkAuth() {
       try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include',
-        });
+        const session = await apiFetch<{
+          user_id: string;
+          email?: string | null;
+        }>("/api/auth/session", { cache: "no-store" });
 
         if (!mounted) return;
 
-        if (response.ok) {
-          const data = await response.json();
-          setState({
-            user: data.user,
-            loading: false,
-          });
-        } else {
-          setState({
-            user: null,
-            loading: false,
-          });
-        }
+        setState({
+          user: {
+            id: session.user_id,
+            email: session.email ?? null,
+            emailVerified: Boolean(session.email),
+          },
+          loading: false,
+        });
       } catch (error) {
         if (!mounted) return;
+        if (error instanceof ApiError && error.status === 401) {
+          setState({ user: null, loading: false });
+          return;
+        }
         setState({
           user: null,
           loading: false,
-          error: error instanceof Error ? error.message : 'Authentication check failed',
+          error:
+            error instanceof ApiError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : "Authentication check failed",
         });
       }
     }

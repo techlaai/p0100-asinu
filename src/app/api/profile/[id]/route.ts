@@ -1,40 +1,65 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import type { Profile } from "@/domain/types";
 import { requireAuth } from "@/lib/auth/getUserId";
+import { ProfilesRepo } from "@/infrastructure/repositories/ProfilesRepo";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string }}) {
+const updateSchema = z
+  .record(z.unknown())
+  .refine(
+    (value) => value && typeof value === "object" && !Array.isArray(value),
+    { message: "Payload must be an object." },
+  )
+  .transform((value) => value as Record<string, unknown>);
+
+async function ensureSelfAccess(req: NextRequest, paramsId: string) {
+  const userId = await requireAuth(req).catch(() => null);
+  if (!userId) {
+    return { error: jsonError("UNAUTHORIZED", { request: req }) };
+  }
+  if (userId !== paramsId) {
+    return { error: jsonError("FORBIDDEN", { request: req }) };
+  }
+  return { userId };
+}
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const access = await ensureSelfAccess(req, params.id);
+  if ("error" in access) return access.error;
+
   try {
-    const uid = await requireAuth(req);
-    if (uid !== params.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-    const sb = supabaseAdmin(); // Gọi supabaseAdmin như một hàm
-    const { data, error } = await sb.from("profiles").select("*").eq("id", uid).single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
-  } catch (error: any) {
-    if (error.message === "Authentication required") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const repo = new ProfilesRepo();
+    const profile = await repo.getById(access.userId);
+    if (!profile) {
+      return jsonError("NOT_FOUND", { request: req, message: "Profile not found." });
     }
-    console.error("Error in /api/profile/[id] GET:", error);
-    return NextResponse.json({ error: error.message || "unknown" }, { status: 500 });
+    return jsonSuccess(profile, { request: req });
+  } catch (error) {
+    console.error("GET /api/profile/[id] failed", error);
+    return jsonError("INTERNAL_ERROR", { request: req });
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string }}) {
-  try {
-    const uid = await requireAuth(req);
-    if (uid !== params.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const access = await ensureSelfAccess(req, params.id);
+  if ("error" in access) return access.error;
 
-    const payload = await req.json();
-    const sb = supabaseAdmin(); // Gọi supabaseAdmin như một hàm
-    const { data, error } = await sb.from("profiles").update(payload).eq("id", uid).select().single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
-  } catch (error: any) {
-    if (error.message === "Authentication required") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    console.error("Error in /api/profile/[id] PUT:", error);
-    return NextResponse.json({ error: error.message || "unknown" }, { status: 500 });
+  const json = await req.json().catch(() => null);
+  const parsed = updateSchema.safeParse(json);
+  if (!parsed.success) {
+    return jsonError("VALIDATION_ERROR", {
+      request: req,
+      details: parsed.error.flatten(),
+    });
+  }
+
+  try {
+    const repo = new ProfilesRepo();
+    const updated = await repo.update(access.userId, parsed.data as Partial<Profile>);
+    return jsonSuccess(updated, { request: req, cacheControl: "no-store" });
+  } catch (error) {
+    console.error("PUT /api/profile/[id] failed", error);
+    return jsonError("INTERNAL_ERROR", { request: req });
   }
 }

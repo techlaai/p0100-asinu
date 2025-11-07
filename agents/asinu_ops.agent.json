@@ -1,6 +1,6 @@
 {
-  "name": "AnoraOps",
-  "description": "Triển khai, giám sát, sao lưu ANORA trên Viettel VPS",
+  "name": "AsinuOps",
+  "description": "Triển khai, giám sát, sao lưu ASINU trên Viettel VPS",
   "triggers": [
     "manual",
     "daily_02h"

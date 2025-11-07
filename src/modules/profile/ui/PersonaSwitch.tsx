@@ -5,9 +5,9 @@ import Button from '@/interfaces/ui/components/atoms/Button';
 import Toast from '@/interfaces/ui/components/atoms/Toast';
 import { cn } from '@/lib/utils';
 import { PersonaPrefs } from '@/lib/profile/mappers';
+import { apiFetch, ApiError } from "@/lib/http";
 
 interface PersonaSwitchProps {
-  userId: string;
   className?: string;
 }
 
@@ -17,7 +17,7 @@ interface PersonaSwitchProps {
  * Allows user to switch AI persona and guidance level
  * Integrates with PUT /api/profile/personality
  */
-export default function PersonaSwitch({ userId, className }: PersonaSwitchProps) {
+export default function PersonaSwitch({ className }: PersonaSwitchProps) {
   const [prefs, setPrefs] = useState<PersonaPrefs>({
     ai_persona: 'friend',
     guidance_level: 'minimal',
@@ -29,22 +29,12 @@ export default function PersonaSwitch({ userId, className }: PersonaSwitchProps)
 
   useEffect(() => {
     fetchPrefs();
-  }, [userId]);
+  }, []);
 
   async function fetchPrefs() {
     try {
       setLoading(true);
-      const response = await fetch('/api/profile/personality', {
-        headers: {
-          'x-debug-user-id': userId
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch preferences');
-      }
-
-      const data = (await response.json()) as { prefs: PersonaPrefs };
+      const data = await apiFetch<{ prefs: PersonaPrefs }>('/api/profile/personality');
       setPrefs({
         ai_persona: data.prefs.ai_persona ?? 'friend',
         guidance_level: data.prefs.guidance_level ?? 'minimal',
@@ -52,7 +42,13 @@ export default function PersonaSwitch({ userId, className }: PersonaSwitchProps)
       });
     } catch (error) {
       console.error('Error fetching prefs:', error);
-      setToast({ message: 'Không thể tải cài đặt', type: 'error' });
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Không thể tải cài đặt';
+      setToast({ message, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -61,21 +57,13 @@ export default function PersonaSwitch({ userId, className }: PersonaSwitchProps)
   async function savePrefs(updates: Partial<PersonaPrefs>) {
     try {
       setSaving(true);
-
-      const response = await fetch('/api/profile/personality', {
+      const data = await apiFetch<{ prefs: PersonaPrefs }>('/api/profile/personality', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'x-debug-user-id': userId
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(updates)
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to save preferences');
-      }
-
-      const data = (await response.json()) as { prefs: PersonaPrefs };
       setPrefs({
         ai_persona: data.prefs.ai_persona ?? 'friend',
         guidance_level: data.prefs.guidance_level ?? 'minimal',
@@ -84,7 +72,13 @@ export default function PersonaSwitch({ userId, className }: PersonaSwitchProps)
       setToast({ message: 'Đã lưu thay đổi', type: 'success' });
     } catch (error) {
       console.error('Error saving prefs:', error);
-      setToast({ message: 'Không thể lưu thay đổi', type: 'error' });
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Không thể lưu thay đổi';
+      setToast({ message, type: 'error' });
     } finally {
       setSaving(false);
     }

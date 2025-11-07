@@ -1,83 +1,108 @@
-// Domain types matching Supabase schema
+// Domain types aligned with the Asinu/DIABOT V5 schema
 
 export type Sex = 'male' | 'female' | 'other';
-export type Goal = 'lose_weight' | 'build_muscle' | 'stabilize_glucose';
-export type GlucoseTag = 'fasting' | 'before_meal' | 'after_meal' | 'bedtime' | 'random';
-export type InsulinType = 'bolus' | 'basal' | 'mixed' | 'correction';
-export type DrinkKind = 'water' | 'tea' | 'coffee' | 'milk' | 'other';
+export type GlucoseContext = 'fasting' | 'pre_meal' | 'post_meal' | 'random';
+export type InsulinType = 'rapid' | 'regular' | 'intermediate' | 'long' | 'mixed' | 'other';
 
 export interface Profile {
-  id: string;
-  email?: string;
-  phone?: string;
-  dob?: string; // ISO date
-  sex?: Sex;
-  height_cm?: number;
-  weight_kg?: number;
-  waist_cm?: number;
-  goal?: Goal;
+  user_id: string;
+  id: string; // alias for compatibility with legacy callers
+  display_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  dob?: string | null; // ISO date
+  sex?: Sex | null;
+  timezone?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Settings payload (user_settings)
+  unit_glucose: 'mgdl' | 'mmol';
+  bg_target_min_mgdl?: number | null;
+  bg_target_max_mgdl?: number | null;
+  carb_ratio_g_per_u?: number | null;
+  insulin_sensitivity_mgdl_per_u?: number | null;
+  reminder_flags?: Record<string, any>;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  waist_cm?: number | null;
+  goal?: string | null;
   conditions?: Record<string, any>;
   prefs?: Record<string, any>;
+  settings_created_at?: string | null;
+  settings_updated_at?: string | null;
+}
+
+export interface GlucoseLog {
+  id: number;
+  user_id: string;
+  value_mgdl: number;
+  context?: GlucoseContext | null;
+  meal_id?: number | null;
+  notes?: string | null;
+  noted_at: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface GlucoseLog {
-  id: string;
-  user_id: string;
-  value_mgdl: number;
-  tag?: GlucoseTag;
-  taken_at: string; // ISO datetime
-  created_at: string;
-}
-
 export interface MealLog {
-  id: string;
+  id: number;
   user_id: string;
-  items: any[]; // JSON array of food items
-  carbs_g?: number;
-  calories_kcal?: number;
-  taken_at: string;
+  title?: string | null;
+  carb_g?: number | null;
+  protein_g?: number | null;
+  fat_g?: number | null;
+  kcal?: number | null;
+  photo_key?: string | null;
+  notes?: string | null;
+  noted_at: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface WaterLog {
-  id: string;
+  id: number;
   user_id: string;
-  amount_ml: number;
-  kind: DrinkKind;
-  taken_at: string;
+  volume_ml: number;
+  noted_at: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface InsulinLog {
-  id: string;
+  id: number;
   user_id: string;
+  insulin_type?: InsulinType | null;
   dose_units: number;
-  type?: InsulinType;
-  taken_at: string;
+  meal_id?: number | null;
+  notes?: string | null;
+  noted_at: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface WeightLog {
-  id: string;
+  id: number;
   user_id: string;
   weight_kg: number;
-  taken_at: string;
+  bodyfat_pct?: number | null;
+  noted_at: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface BpLog {
-  id: string;
+  id: number;
   user_id: string;
-  systolic: number;
-  diastolic: number;
-  pulse?: number;
-  taken_at: string;
+  sys: number;
+  dia: number;
+  pulse?: number | null;
+  noted_at: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface MetricDay {
+  id: number;
   user_id: string;
   day: string; // ISO date
   metric: string;
@@ -86,8 +111,9 @@ export interface MetricDay {
 }
 
 export interface MetricWeek {
+  id: number;
   user_id: string;
-  week: number; // YYYYWW format
+  week: number;
   metric: string;
   value: Record<string, any>;
   updated_at: string;

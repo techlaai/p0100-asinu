@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase/admin"; // Đã sửa import
 import { requireAuth } from "@/lib/auth/getUserId";
+import { query } from "@/lib/db_client";
 
 const bodySchema = z.object({
   weight_kg: z.number().min(20).max(300),
-  taken_at: z.string().datetime().optional(),
+  bodyfat_pct: z.number().min(3).max(70).optional(),
+  noted_at: z.string().datetime({ offset: true }).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -16,18 +17,17 @@ export async function POST(req: NextRequest) {
     const parse = bodySchema.safeParse(json);
     if (!parse.success) return NextResponse.json({ error: parse.error.flatten() }, { status: 400 });
 
-    const { weight_kg, taken_at } = parse.data;
-    const taken = taken_at ? new Date(taken_at).toISOString() : new Date().toISOString();
+    const { weight_kg, bodyfat_pct, noted_at } = parse.data;
+    const notedAt = noted_at ? new Date(noted_at).toISOString() : new Date().toISOString();
 
-    const sb = supabaseAdmin(); // Gọi supabaseAdmin như một hàm
-    const { data, error } = await sb
-      .from("weight_logs")
-      .insert({ user_id: userId, weight_kg, taken_at: taken })
-      .select()
-      .single();
+    const res = await query(
+      `INSERT INTO log_weight (user_id, weight_kg, bodyfat_pct, noted_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, now(), now())
+       RETURNING id, user_id, weight_kg, bodyfat_pct, noted_at, created_at, updated_at`,
+      [userId, weight_kg, bodyfat_pct ?? null, notedAt],
+    );
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, data }, { status: 201 });
+    return NextResponse.json({ ok: true, data: res.rows[0] }, { status: 201 });
   } catch (error: any) {
     if (error.message === "Authentication required") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

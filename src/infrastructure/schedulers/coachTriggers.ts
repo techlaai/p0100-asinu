@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase/admin"; // Đã sửa import
+import { query } from "@/lib/db_client";
 
 /**
  * Rule:
@@ -7,67 +7,70 @@ import { supabaseAdmin } from "@/lib/supabase/admin"; // Đã sửa import
  * - Weight 7d lệch > ngưỡng (mặc định 1.5kg) → push
  */
 export async function runCoachTriggers(user_id: string, opts?: { waterTarget?: number; weightDelta?: number }) {
-  const supa = supabaseAdmin(); // Gọi supabaseAdmin như một hàm
   const waterTarget = opts?.waterTarget ?? 1500;
   const weightDelta = opts?.weightDelta ?? 1.5;
 
   // BG near
-  const { data: bg } = await supa
-    .from("glucose_logs")
-    .select("ts")
-    .eq("profile_id", user_id)
-    .order("ts", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const bgResult = await query<{ noted_at: string }>(
+    `SELECT noted_at
+     FROM log_bg
+     WHERE user_id = $1
+     ORDER BY noted_at DESC
+     LIMIT 1`,
+    [user_id],
+  );
 
-  const needBG =
-    !bg || Date.now() - new Date(bg.ts).getTime() > 72 * 3600 * 1000;
+  const lastBg = bgResult.rows[0]?.noted_at ? new Date(bgResult.rows[0].noted_at).getTime() : 0;
+  const needBG = !lastBg || Date.now() - lastBg > 72 * 3600 * 1000;
 
   if (needBG) {
-    await supa.from("coach_events").insert({
-      user_id,
-      event_type: "bg_over_72h",
-      payload: { msg: "Đã quá 72h chưa đo BG, hãy đo lại ngay." },
-    });
+    await query(
+      `INSERT INTO coach_events (user_id, event_type, payload, created_at)
+       VALUES ($1, $2, $3::jsonb, now())`,
+      [user_id, "bg_over_72h", JSON.stringify({ msg: "Đã quá 72h chưa đo BG, hãy đo lại ngay." })],
+    );
   }
 
   // Water today
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  const { data: waters } = await supa
-    .from("water_logs")
-    .select("ml")
-    .eq("profile_id", user_id)
-    .gte("ts", start.toISOString());
+  const waterResult = await query<{ total: number }>(
+    `SELECT COALESCE(SUM(volume_ml), 0) AS total
+     FROM log_water
+     WHERE user_id = $1 AND noted_at >= $2`,
+    [user_id, start.toISOString()],
+  );
 
-  const waterSum = (waters ?? []).reduce((s: number, r: any) => s + (r.ml || 0), 0);
+  const waterSum = waterResult.rows[0]?.total ?? 0;
   if (waterSum < waterTarget) {
-    await supa.from("coach_events").insert({
-      user_id,
-      event_type: "water_below_target",
-      payload: { today_ml: waterSum, target_ml: waterTarget },
-    });
+    await query(
+      `INSERT INTO coach_events (user_id, event_type, payload, created_at)
+       VALUES ($1, $2, $3::jsonb, now())`,
+      [user_id, "water_below_target", JSON.stringify({ today_ml: waterSum, target_ml: waterTarget })],
+    );
   }
 
   // Weight delta 7d
   const since = new Date();
   since.setDate(since.getDate() - 7);
-  const { data: w7 } = await supa
-    .from("weight_logs")
-    .select("kg, ts")
-    .eq("profile_id", user_id)
-    .gte("ts", since.toISOString())
-    .order("ts", { ascending: false });
+  const weightResult = await query<{ weight_kg: number; noted_at: string }>(
+    `SELECT weight_kg, noted_at
+     FROM log_weight
+     WHERE user_id = $1 AND noted_at >= $2
+     ORDER BY noted_at DESC`,
+    [user_id, since.toISOString()],
+  );
 
-  if (w7 && w7.length >= 2) {
-    const latest = w7[0].kg;
-    const oldest = w7[w7.length - 1].kg;
+  if (weightResult.rowCount && weightResult.rowCount >= 2) {
+    const rows = weightResult.rows;
+    const latest = rows[0].weight_kg;
+    const oldest = rows[rows.length - 1].weight_kg;
     if (Math.abs(latest - oldest) > weightDelta) {
-      await supa.from("coach_events").insert({
-        user_id,
-        event_type: "weight_delta_7d",
-        payload: { latest, oldest, delta: latest - oldest },
-      });
+      await query(
+        `INSERT INTO coach_events (user_id, event_type, payload, created_at)
+         VALUES ($1, $2, $3::jsonb, now())`,
+        [user_id, "weight_delta_7d", JSON.stringify({ latest, oldest, delta: latest - oldest })],
+      );
     }
   }
 }

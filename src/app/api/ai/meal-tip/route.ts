@@ -6,7 +6,7 @@ import { generateMealTip, formatTip, type MealData, type UserFeatures } from '@/
 import { validateAndSanitize } from '@/modules/ai/qcFilter';
 import { transformWithPersona, extractPersonaPrefs } from '@/modules/ai/persona';
 import { ProfilesRepo } from '@/infrastructure/repositories/ProfilesRepo';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { query } from '@/lib/db_client';
 
 /**
  * POST /api/ai/meal-tip
@@ -54,20 +54,22 @@ export async function POST(request: NextRequest) {
     const dailyFeatures = await featureRepo.getFeaturesWithFallback(userId);
 
     // Get latest BG
-    const { data: bgData } = await supabaseAdmin()
-      .from('glucose_logs')
-      .select('value_mgdl')
-      .eq('user_id', userId)
-      .order('taken_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const bgResult = await query<{ value_mgdl: number | null }>(
+      `SELECT value_mgdl
+       FROM log_bg
+       WHERE user_id = $1
+       ORDER BY noted_at DESC
+       LIMIT 1`,
+      [userId],
+    );
+    const bgData = bgResult.rows[0];
 
     const userFeatures: UserFeatures = {
-      carb_g_total_yesterday: dailyFeatures.carb_g_total,
-      protein_g_total_yesterday: dailyFeatures.protein_g_total,
-      fat_g_total_yesterday: dailyFeatures.fat_g_total,
-      fried_count_7d: dailyFeatures.fried_count,
-      latest_bg: bgData?.value_mgdl
+      carb_g_total_yesterday: dailyFeatures.carb_g_total ?? undefined,
+      protein_g_total_yesterday: dailyFeatures.protein_g_total ?? undefined,
+      fat_g_total_yesterday: dailyFeatures.fat_g_total ?? undefined,
+      fried_count_7d: dailyFeatures.fried_count ?? undefined,
+      latest_bg: bgData?.value_mgdl ?? undefined,
     };
 
     // Generate tip using rules

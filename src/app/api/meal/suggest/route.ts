@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/getUserId';
-import { generateRequestId } from '@/lib/analytics/eventTracker';
-import { FeatureStoreRepo } from '@/modules/meal/infrastructure/FeatureStoreRepo';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { NextRequest } from "next/server";
+import { requireAuth } from "@/lib/auth/getUserId";
+import { FeatureStoreRepo } from "@/modules/meal/infrastructure/FeatureStoreRepo";
+import { query } from "@/lib/db_client";
+import { ensureRequestId } from "@/lib/logging/request_id";
+import { jsonError, jsonSuccess } from "@/lib/http/response";
 export const dynamic = 'force-dynamic';
 
 /**
@@ -30,12 +31,15 @@ interface MealSuggestion {
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  const requestId = generateRequestId();
+  const requestId = ensureRequestId(request);
+  const userId = await requireAuth(request).catch(() => null);
+  if (!userId) {
+    return jsonError("UNAUTHORIZED", { request: request, requestId });
+  }
 
   try {
-    const userId = await requireAuth(request);
     const { searchParams } = new URL(request.url);
-    const mealType = searchParams.get('mealType') || 'lunch';
+    const mealType = searchParams.get("mealType") || "lunch";
 
     // Check cache first
     const cacheKey = `${userId}:${mealType}`;
@@ -44,23 +48,26 @@ export async function GET(request: NextRequest) {
     if (cached && cached.expiry > Date.now()) {
       console.info({
         request_id: requestId,
-        source: 'cache',
+        source: "cache",
         user_id: userId,
-        response_time_ms: Date.now() - startTime
+        response_time_ms: Date.now() - startTime,
       });
 
-      return NextResponse.json({
-        suggestions: cached.data.suggestions,
-        copy_yesterday: cached.data.copy_yesterday,
-        custom: cached.data.custom,
-        meta: {
-          request_id: requestId,
-          source: 'cache',
-          meal_type: mealType,
-          time: new Date().toISOString(),
-          response_time_ms: Date.now() - startTime
-        }
-      });
+      return jsonSuccess(
+        {
+          suggestions: cached.data.suggestions,
+          copy_yesterday: cached.data.copy_yesterday,
+          custom: cached.data.custom,
+          meta: {
+            request_id: requestId,
+            source: "cache",
+            meal_type: mealType,
+            time: new Date().toISOString(),
+            response_time_ms: Date.now() - startTime,
+          },
+        },
+        { request: request, requestId },
+      );
     }
 
     // Fetch from Feature Store
@@ -72,14 +79,45 @@ export async function GET(request: NextRequest) {
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-    const { data: yesterdayMeals } = await supabaseAdmin()
-      .from('meal_logs')
-      .select('items, carbs_g, protein_g, fat_g, kcal')
-      .eq('user_id', userId)
-      .gte('taken_at', `${yesterdayStr}T00:00:00Z`)
-      .lte('taken_at', `${yesterdayStr}T23:59:59Z`)
-      .limit(1)
-      .maybeSingle();
+    const yesterdayMealsResult = await query<{
+      notes: string | null;
+      carb_g: number | null;
+      protein_g: number | null;
+      fat_g: number | null;
+      kcal: number | null;
+      title: string | null;
+    }>(
+      `SELECT notes, carb_g, protein_g, fat_g, kcal, title
+       FROM log_meal
+       WHERE user_id = $1
+         AND noted_at BETWEEN $2 AND $3
+       ORDER BY noted_at DESC
+       LIMIT 1`,
+      [userId, `${yesterdayStr}T00:00:00Z`, `${yesterdayStr}T23:59:59Z`],
+    );
+    const yesterdayMealRow = yesterdayMealsResult.rows[0];
+    let yesterdayMeals: { items: any[]; carbs_g: number | null; protein_g: number | null; fat_g: number | null; kcal: number | null } | null = null;
+    if (yesterdayMealRow) {
+      let notesPayload: Record<string, any> = {};
+      if (yesterdayMealRow.notes) {
+        try {
+          notesPayload = JSON.parse(yesterdayMealRow.notes);
+        } catch {
+          notesPayload = { notes: yesterdayMealRow.notes };
+        }
+      }
+      const items = Array.isArray(notesPayload.items)
+        ? notesPayload.items
+        : [{ name: notesPayload.notes ?? yesterdayMealRow.title ?? 'Meal' }];
+
+      yesterdayMeals = {
+        items,
+        carbs_g: yesterdayMealRow.carb_g,
+        protein_g: yesterdayMealRow.protein_g,
+        fat_g: yesterdayMealRow.fat_g,
+        kcal: yesterdayMealRow.kcal,
+      };
+    }
 
     // Generate 3 quick suggestions based on patterns
     const suggestions: MealSuggestion[] = [];
@@ -156,43 +194,49 @@ export async function GET(request: NextRequest) {
       response_time_ms: responseTime
     });
 
-    return NextResponse.json({
-      ...result,
-      meta: {
-        request_id: requestId,
-        source: 'computed',
-        meal_type: mealType,
-        time: new Date().toISOString(),
-        response_time_ms: responseTime
-      }
-    });
+    return jsonSuccess(
+      {
+        ...result,
+        meta: {
+          request_id: requestId,
+          source: "computed",
+          meal_type: mealType,
+          time: new Date().toISOString(),
+          response_time_ms: responseTime,
+        },
+      },
+      { request: request, requestId },
+    );
 
   } catch (err: any) {
     console.error('Error in /api/meal/suggest:', err);
 
     // Fallback suggestions on error
-    const mealType = new URL(request.url).searchParams.get('mealType') || 'lunch';
+    const mealType = new URL(request.url).searchParams.get("mealType") || "lunch";
     const defaults = getDefaultSuggestions(mealType);
 
-    return NextResponse.json({
-      suggestions: defaults,
-      copy_yesterday: null,
-      custom: {
-        id: 'custom',
-        name: 'Tự nhập món ăn',
-        kcal: 0,
-        carb_g: 0,
-        protein_g: 0,
-        fat_g: 0
+    return jsonSuccess(
+      {
+        suggestions: defaults,
+        copy_yesterday: null,
+        custom: {
+          id: "custom",
+          name: "Tự nhập món ăn",
+          kcal: 0,
+          carb_g: 0,
+          protein_g: 0,
+          fat_g: 0,
+        },
+        meta: {
+          request_id: requestId,
+          source: "fallback",
+          meal_type: mealType,
+          time: new Date().toISOString(),
+          error: err instanceof Error ? err.message : "unknown",
+        },
       },
-      meta: {
-        request_id: generateRequestId(),
-        source: 'fallback',
-        meal_type: mealType,
-        time: new Date().toISOString(),
-        error: err.message
-      }
-    }, { status: 200 });
+      { request: request, requestId },
+    );
   }
 }
 
