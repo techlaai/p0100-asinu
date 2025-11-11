@@ -1,6 +1,4 @@
-version: "3.9"
-
-# DIABOT Production Docker Compose Configuration
+# ASINU Production Docker Compose Configuration
 # Environment: Viettel Cloud VPS Staging
 # Version: 0.9.0
 # Port: 80 (mapped from container port 3000)
@@ -52,7 +50,6 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
-
   asinu-postgres:
     image: postgres:15
     restart: always
@@ -60,11 +57,13 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: VeryStrongPassword!
       POSTGRES_DB: diabotdb
+
       PGPASSWORD: VeryStrongPassword!
     volumes:
       - ./data/db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d diabotdb"]
+
       interval: 10s
       timeout: 5s
       retries: 5
