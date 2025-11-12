@@ -100,17 +100,16 @@ jobs:
             -p 3000:3000 \
             "${{ needs.build.outputs.image }}:${{ needs.build.outputs.tag }}"
 
-      - name: Wait for /healthz
+      - name: Wait for /api/qa/selftest
         run: |
           for i in {1..90}; do
-            if curl -fsS http://localhost:3000/healthz >/dev/null; then exit 0; fi
+            if curl -fsS http://localhost:3000/api/qa/selftest >/dev/null; then exit 0; fi
             sleep 1
           done
           echo "App did not report healthy in time" && exit 1
 
       - name: Smoke endpoints
         run: |
-          curl -fsS http://localhost:3000/healthz
           curl -fsS http://localhost:3000/api/qa/selftest
 
       - name: Stop container
