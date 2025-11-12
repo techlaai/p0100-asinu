@@ -41,7 +41,7 @@ jobs:
         run: npm run type-check
 
       - name: Unit & integration tests
-        run: npm run test -- --runInBand
+        run: npm test -- --threads=false
 
       - name: Build (CI mode)
         run: npm run build:ci
