@@ -3,23 +3,35 @@ import React from "react";
 import AuthGate from "@/interfaces/ui/components/AuthGate";
 import ProfileViewer from "@/components/profile/ProfileViewer";
 import ProfileEditor from "@/components/profile/ProfileEditor";
+import { getSession } from "@/infrastructure/auth/session";
 
 export const dynamic = "force-dynamic";
 
 async function getProfileServer(userId: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/profile/${userId}`, {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+  const res = await fetch(`${baseUrl}/api/profile/${userId}`, {
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
   });
-  if (!res.ok) throw new Error("Failed to load profile");
+  if (!res.ok) {
+    throw new Error("Failed to load profile");
+  }
   return res.json();
 }
 
 export default async function ProfilePage() {
-  // TODO: thay bằng cách lấy userId thực tế từ hệ thống nhận diện của bạn
-  const userId = "REPLACE_WITH_AUTH_UID";
+  const session = await getSession();
   let profile: any = null;
-  try { profile = await getProfileServer(userId); } catch {}
+
+  if (session?.user_id) {
+    try {
+      profile = await getProfileServer(session.user_id);
+    } catch (error) {
+      console.warn("[profile] load failed", error);
+    }
+  }
 
   return (
     <AuthGate>

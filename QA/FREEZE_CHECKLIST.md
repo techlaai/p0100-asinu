@@ -14,6 +14,13 @@
 - [x] B3 Meal log: items/portion/ảnh; upload Storage; thumbnail hiển thị
 - [x] B4 Export CSV: tải được 7 ngày gần nhất (`/api/export`)
 - [x] B5 Demo seed: bật `NEXT_PUBLIC_CHART_USE_DEMO=true`, chart 7/30 hiển thị khi trống data
+- [ ] B6 Life Tree (flag `TREE_ENABLED`):
+  - [ ] `/api/tree/state` trả 404 khi flag OFF, 200 khi flag ON (QA config).
+  - [ ] UI “Life Tree” hiển thị level/E_day đúng dữ liệu API.
+- [ ] B7 Family viewer (flag `RELATIVE_ENABLED`):
+  - [ ] `/api/relative/list|add|remove` hoạt động khi flag ON.
+  - [ ] `/api/relative/dashboard` trả dữ liệu owner khi relative có quyền.
+  - [ ] RelativesPanel ẩn khi flag OFF.
 
 ## C. UI/UX
 - [x] C1 Auth polish: font ≥15.5px, hit-area ≥44px, contrast ≥4.5
@@ -29,3 +36,4 @@
 - [x] D1 Smoke script: xanh cho các route chính
 - [ ] D2 Android: có tài liệu build .aab + Data Safety form (template)
 - [ ] D3 iOS: có tài liệu TestFlight + App Privacy (Nutrition Labels)
+- [ ] D4 Rewards flag: xác nhận `REWARDS_ENABLED=false` trên prod; smoke `/api/rewards/catalog` 404 khi flag OFF.

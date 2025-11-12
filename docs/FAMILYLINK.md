@@ -298,6 +298,11 @@ CREATE TABLE alert_events (
 - Test alert_sessions (tuong lai): Emergency Mode 24h
 - **Crash-free >= 99.5%**
 
+### 4. QA Phase B Snapshot (12/11/2025)
+- ✅ API `/api/relative/list|add|remove|dashboard` hoạt động khi `RELATIVE_ENABLED=true`, trả 404 khi OFF.
+- ✅ UI Profile hiển thị `RelativesPanel` (client) – thêm/xóa relative, auto ẩn khi flag OFF.
+- ⏸ Phase C (log hộ + emergency) chưa bật; route `/api/relative/log/:type` vẫn stub.
+
 ---
 
 ## Ket qua mong doi
