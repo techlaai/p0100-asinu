@@ -6,6 +6,9 @@ import FieldRow from '@/components/ui/FieldRow';
 import SummaryCard from './sections/SummaryCard';
 import { D, formatDateDDMMYYYY, boolToYesNo } from '@/lib/profile/formatters';
 import { Goals, PersonaPrefs } from '@/lib/profile/mappers';
+import dynamic from "next/dynamic";
+
+const RelativesPanel = dynamic(() => import("./RelativesPanel"), { ssr: false });
 
 type Conditions = {
   diabetes?: boolean;
@@ -96,6 +99,8 @@ export default function ProfileViewer({ profile, goals, prefs }: Props) {
           )}
         />
       </div>
+
+      <RelativesPanel />
     </section>
   );
 }
