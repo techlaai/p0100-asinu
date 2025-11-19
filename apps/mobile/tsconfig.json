@@ -1,0 +1,15 @@
+{
+  "extends": "@tsconfig/react-native/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/app/*": ["app/*"],
+      "@/features/*": ["src/features/*"],
+      "@/ui/*": ["src/ui/*"],
+      "@/lib/*": ["src/lib/*"]
+    }
+  },
+  "include": ["app", "src", "expo-env.d.ts"],
+  "exclude": ["node_modules"]
+}

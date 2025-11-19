@@ -27,6 +27,9 @@
 | `ZALO_OAUTH_REDIRECT_URI` | Optional | Derived from request URL | Override callback URL for Zalo OAuth (defaults to `/api/auth/zalo`). |
 | `TREE_ENABLED` | Optional | `false` | Enables the Life Tree ledger/API (`/api/tree/state`) and point-award helper. |
 | `DONATION_PORTAL_URL` | Optional | `https://asinu.ai/donate` | Base URL used to generate VNPay/MoMo donation deep links returned by `/api/donate`. |
+| `MOBILE_API_BASE_URL` | Optional | `NEXT_PUBLIC_APP_URL` | Base URL returned in `/api/mobile/session.env` for Expo clients; override when backend lives on a different origin. |
+| `MOBILE_APP_VERSION` | Optional | `dev` | Semantic/version label surfaced via `/api/mobile/session.env.appVersion`. |
+| `EXPO_PUBLIC_MOBILE_API_BASE_URL` | Optional | `http://localhost:3000` | Expo Router fetch base when calling `/api/mobile/*`; set to staging/prod URL when testing against remote stacks. |
 | `ASINU_SMOKE_SESSION` | Optional | – | Session cookie used by `npm run smoke`; falls back to `SMOKE_SESSION` or `SESSION_ID`. |
 | `SMOKE_BASE_URL` | Optional | `http://localhost:<port>` | Override the base URL the smoke harness hits (defaults to localhost). |
 | `SMOKE_PORT` | Optional | `3000` | Port used to build the default smoke base URL when `SMOKE_BASE_URL` is not set. |

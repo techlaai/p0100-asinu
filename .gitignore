@@ -68,6 +68,7 @@ yarn-error.log*
 archive/bolt_legacy/**/tmp/
 archive/bolt_legacy/**/scratch/
 archive/bolt_legacy/**/dist/
+archive/*.zip
 
 # Environment secrets (keep local only)
 .env

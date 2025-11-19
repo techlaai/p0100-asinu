@@ -32,6 +32,34 @@ curl -i http://localhost:3000/api/qa/selftest   # expect 200
 NEXT_FORCE_SWC_WASM=1 pnpm build   # forces the wasm binding via patches/next+14.2.7.patch
 ```
 
+## 📱 Mobile (Expo Router)
+
+- Expo template now lives under `apps/mobile/` (Expo Router + UI kit).
+- Install deps & run dev server:
+
+```bash
+cd apps/mobile
+npm install
+npm run start     # or npm run android / ios / web
+```
+
+- Routing lives in `apps/mobile/app/`, shared UI/components remain in `apps/mobile/src/*`, and data access goes through the future `lib/api` client per `docs/ASINU_MOBILE_SCREENS.md`.
+
+### Mobile API bridge
+- Backend exposes cookie-authenticated routes under `/api/mobile/*` mirroring the contracts in `docs/ASINU_MOBILE_CONTRACTS.md`.
+- Session endpoint: `GET /api/mobile/session` → `{ user, featureFlags, env }` (flags include `MISSIONS_ENABLED`, `TREE_ENABLED`, `REWARDS_ENABLED`, `DONATE_ENABLED`, `FAMILY_ENABLED`, …).
+- Core data endpoints now available:  
+  `GET /api/mobile/dashboard` • `/missions/today` • `/missions/[id]` • `POST /missions/checkin` • `/rewards/catalog` • `/rewards/[id]` • `POST /rewards/redeem` • `/donate/summary` • `POST /donate/intent` • `/tree/state` • `/profile` • `/family` • `POST /auth/logout`.
+- All routes require a valid `asinu.sid` cookie and honor server feature flags (`featureGate`); responses are `no-store` for easy mobile caching. Use `BRIDGE_URL/BRIDGE_KEY` + `FEATURE_*` envs to toggle behavior for QA smoke.
+
+### Expo EAS workflows
+- `apps/mobile/eas.json` defines shared build profiles (`development`, `preview`, `production`). Update the `expo.extra.eas.projectId` (via `eas init`) before triggering CI builds.
+- GitHub Actions workflow `.github/workflows/eas-build.yml` can be run manually (`Run workflow`) with inputs `profile` and `platform` (android/ios/all).  
+  Requirements:
+  1. Add `EXPO_TOKEN` (generated via `eas account:token`) to the repository secrets.
+  2. Ensure `apps/mobile/app.json` contains the Expo project ID after running `eas init`.
+- The action installs dependencies inside `apps/mobile/`, logs in with the provided token, and executes `eas build --platform <target> --profile <profile> --non-interactive` following [Expo’s EAS + GitHub Actions guide](https://expo.dev/blog/how-to-integrate-eas-workflows-with-github-actions).
+
 ## 🔥 Smoke Harness (`npm run smoke`)
 
 Run a full Auth → Mission → Rewards/Donate → Bridge → Healthz sweep with one command:
@@ -218,3 +246,157 @@ QA Lead: Đặng Tuấn Anh
 Product Owner: Trần Hoàng Nam
 
 © 2025 CÔNG TY CỔ PHẦN ASINU — All rights reserved.
+
+Dưới đây là 3 khung luật chơi ông chỉ việc copy đưa cho Codex. Không code, không lệnh, chỉ mục tiêu & nguyên tắc.
+
+🔹 KHUNG 1 – Luật chơi cho Mobile Contracts /api/mobile/*
+
+Mục tiêu: Backend mobile và Asinu Mobile phải đi chung một “bản đồ”, không được tự chế thêm.
+
+Yêu cầu cho Codex:
+
+ASINU_MOBILE_SCREEN_ARCHITECTURE và ASINU_MOBILE_CONTRACTS là “nguồn sự thật” cho toàn bộ mobile.
+
+Mọi route /api/mobile/* phải bám đúng bảng contract hiện tại.
+
+Không được tự ý đổi tên endpoint, đổi shape response nếu chưa cập nhật lại contract.
+
+Khi cần thêm endpoint mới cho mobile:
+
+Bước 1: Bổ sung rõ ràng vào bảng contracts (mô tả, request, response, error).
+
+Bước 2: Sau đó mới được tạo route backend và hook mobile tương ứng.
+
+Không được “code trước, sửa docs sau”.
+
+Mọi màn P0 phải luôn có:
+
+Route mobile rõ ràng (đường dẫn /api/mobile/... dùng thật).
+
+Request shape và response shape khớp bảng.
+
+Trạng thái lỗi: 401, 404, 409, 500… phải bám đúng mô tả, không bịa thêm mã lỗi lạ.
+
+Khi phát hiện backend hiện tại khác với contracts:
+
+Phải ghi lại chênh lệch trong REPORT_2025-11-HISTORY.md và đề xuất sửa về phía nào (docs hay code), không tự “vá tạm”.
+
+🔹 KHUNG 2 – Luật chơi cho Feature Flag (Dia Brain × Mobile)
+
+Mục tiêu: Flag rõ ràng, ít nhưng chất, mobile chỉ đọc – không tự sáng tạo.
+
+Yêu cầu cho Codex:
+
+Danh sách flag lõi cho mobile (ví dụ, có thể điều chỉnh nhưng không được tự thêm lung tung):
+
+TREE_ENABLED
+
+REWARDS_ENABLED
+
+DONATE_ENABLED
+
+FAMILY_ENABLED
+
+AI_CHAT_ENABLED
+
+NOTIFICATIONS_ENABLED
+
+Với mỗi flag, luôn phải trả lời được 2 câu:
+
+Khi flag = bật: màn nào xuất hiện, hành vi gì mở ra?
+
+Khi flag = tắt: màn nào ẩn hoặc fallback sang trạng thái gì (empty, offline, message giải thích)?
+
+Nguồn dữ liệu flag:
+
+Mobile chỉ đọc từ session hoặc một endpoint config (ví dụ /api/mobile/session hoặc /api/mobile/app-config).
+
+Không set flag từ local storage một cách tùy tiện.
+
+Mọi quyết định bật/tắt tính năng phải xuất phát từ server/Dia Brain.
+
+Khi muốn thêm flag mới:
+
+Bước 1: Ghi vào tài liệu flag (table mô tả tên flag, ý nghĩa, hành vi).
+
+Bước 2: Cập nhật contracts/session để trả flag đó xuống mobile.
+
+Bước 3: Sau đó mới chỉnh UI để phản ánh flag.
+
+Không được:
+
+Tạo flag mới trong code mà không có docs.
+
+Ẩn màn bằng cách “comment UI” thay vì điều khiển bằng flag.
+
+🔹 KHUNG 3 – Luật chơi cho Smoke Flow “hạnh phúc” trên Asinu Mobile
+
+Mục tiêu: Mọi test, mọi QA, mọi wiring check-in/redeem/donate đều phải xoay quanh một vòng trải nghiệm chuẩn của người nhà bệnh nhân tiểu đường, không chỉ là test kỹ thuật.
+
+Yêu cầu cho Codex:
+
+Xây dựng và duy trì một vòng smoke flow chuẩn, với nhân vật là người con chăm bố/mẹ tiểu đường, gồm ít nhất các bước:
+
+Mở app → Splash đọc session và feature flags.
+
+Nếu chưa đăng nhập → đi qua một trong hai:
+
+Login email/password
+
+Hoặc OTP điện thoại
+
+Sau đăng nhập → vào Home Dashboard, thấy:
+
+Nhiệm vụ hôm nay
+
+Năng lượng cây
+
+Rewards/Donate CTA hiển thị đúng flag.
+
+Vào Missions → hoàn thành ít nhất một mission (check-in)
+
+Thấy trạng thái mission đổi
+
+Thấy tổng quan trên home hoặc tree thay đổi tương ứng (energy/VP).
+
+Vào Rewards → xem danh sách phần thưởng → mở chi tiết một reward.
+
+Thực hiện một lần redeem (nếu flag bật) → kiểm tra:
+
+Balance thay đổi
+
+Lịch sử redeem có thêm dòng mới.
+
+Vào Donate → xem được options → tạo một donate intent (dù là mock) → thấy trạng thái được ghi nhận.
+
+Vào Family → thấy danh sách người thân (kể cả empty state nếu chưa có).
+
+Vào Profile/Settings → xem thông tin cá nhân, có thể chỉnh một tuỳ chọn nhỏ.
+
+Tắt mạng hoặc mô phỏng offline → màn Offline phải hiện đúng, có nút retry.
+
+Quay lại online, logout → quay về đúng luồng auth.
+
+Mọi unit/UI test cho screen Expo phải bám theo vòng này:
+
+Test không chỉ check “component render” mà phải check luồng câu chuyện:
+
+Sau check-in mission → dashboard thay đổi thích hợp.
+
+Sau redeem → balance và history thay đổi.
+
+Sau donate → donate history ghi nhận.
+
+Khi bổ sung test mới:
+
+Phải trả lời được câu hỏi: “Bước này trong hành trình của người nhà là bước số mấy? Nó giúp họ yên tâm hơn chỗ nào?”
+
+Nếu không map được vào hành trình thực tế → test đó là phụ, không phải test cốt lõi.
+
+Bất cứ khi nào smoke flow bị gãy:
+
+Phải ghi log lại rõ trong REPORT_2025-11-HISTORY.md (hoặc file history tháng hiện tại):
+
+Gãy ở bước nào trong 11 bước trên
+
+Do flag, do API, hay do UI.
