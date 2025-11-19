@@ -18,17 +18,12 @@
     "preview": {
       "android": {
         "workflow": "managed",
-        "channel": "preview",
-        "autoIncrement": false
+        "channel": "preview"
       },
       "ios": {
         "workflow": "managed",
-        "channel": "preview",
-        "autoIncrement": false
+        "channel": "preview"
       }
     }
-  },
-  "submit": {
-    "production": {}
   }
 }
