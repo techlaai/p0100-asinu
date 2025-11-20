@@ -18,6 +18,7 @@ export const RewardDetailScreen = ({ rewardId }: Props) => {
   const { featureFlags } = useMobileSession();
   const { data, loading, error, refresh } = useMobileEndpoint<RewardDetail>(rewardId ? `/api/mobile/rewards/${rewardId}` : null);
 
+
   const handleRedeem = async () => {
     if (!rewardId) return;
     await mobileRequest('/api/mobile/rewards/redeem', {
@@ -90,10 +91,3 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   }
 });
-  if (!featureFlags.REWARDS_ENABLED) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.placeholder}>Rewards đang tắt.</Text>
-      </View>
-    );
-  }

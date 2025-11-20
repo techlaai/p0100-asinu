@@ -15,6 +15,8 @@ module.exports = function (api) {
           },
         },
       ],
+      // ⚠️ BẮT BUỘC: luôn để plugin này CUỐI CÙNG
+      'react-native-reanimated/plugin',
     ],
   };
 };
