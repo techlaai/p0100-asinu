@@ -34,31 +34,22 @@ NEXT_FORCE_SWC_WASM=1 pnpm build   # forces the wasm binding via patches/next+14
 
 ## 📱 Mobile (Expo Router)
 
-- Expo template now lives under `apps/mobile/` (Expo Router + UI kit).
+- **ASINU Lite** lives under `apps/asinu-lite/` (Expo Router + UI kit). The legacy build has been archived to `archive/mobile-legacy/` and should not be used for new work.
 - Install deps & run dev server:
 
 ```bash
-cd apps/mobile
+cd apps/asinu-lite
 npm install
-npm run start     # or npm run android / ios / web
+npm run start     # or npx expo start
 ```
 
-- Routing lives in `apps/mobile/app/`, shared UI/components remain in `apps/mobile/src/*`, and data access goes through the future `lib/api` client per `docs/ASINU_MOBILE_SCREENS.md`.
+- Routing lives in `apps/asinu-lite/app/`, shared UI/components remain in `apps/asinu-lite/src/*`, and data access goes through the `/api/mobile/*` HTTP client. See `docs/ASINU_LITE_REPORT_2025-11-26.md` for endpoint notes.
 
 ### Mobile API bridge
-- Backend exposes cookie-authenticated routes under `/api/mobile/*` mirroring the contracts in `docs/ASINU_MOBILE_CONTRACTS.md`.
-- Session endpoint: `GET /api/mobile/session` → `{ user, featureFlags, env }` (flags include `MISSIONS_ENABLED`, `TREE_ENABLED`, `REWARDS_ENABLED`, `DONATE_ENABLED`, `FAMILY_ENABLED`, …).
-- Core data endpoints now available:  
-  `GET /api/mobile/dashboard` • `/missions/today` • `/missions/[id]` • `POST /missions/checkin` • `/rewards/catalog` • `/rewards/[id]` • `POST /rewards/redeem` • `/donate/summary` • `POST /donate/intent` • `/tree/state` • `/profile` • `/family` • `POST /auth/logout`.
-- All routes require a valid `asinu.sid` cookie and honor server feature flags (`featureGate`); responses are `no-store` for easy mobile caching. Use `BRIDGE_URL/BRIDGE_KEY` + `FEATURE_*` envs to toggle behavior for QA smoke.
+- Backend exposes cookie-authenticated routes under `/api/mobile/*` (auth, profile, missions, logs, tree, flags). Responses are `no-store` for easy caching. Use `EXPO_PUBLIC_API_BASE_URL` in the Expo app to point at the correct environment.
 
 ### Expo EAS workflows
-- `apps/mobile/eas.json` defines shared build profiles (`development`, `preview`, `production`). Update the `expo.extra.eas.projectId` (via `eas init`) before triggering CI builds.
-- GitHub Actions workflow `.github/workflows/eas-build.yml` can be run manually (`Run workflow`) with inputs `profile` and `platform` (android/ios/all).  
-  Requirements:
-  1. Add `EXPO_TOKEN` (generated via `eas account:token`) to the repository secrets.
-  2. Ensure `apps/mobile/app.json` contains the Expo project ID after running `eas init`.
-- The action installs dependencies inside `apps/mobile/`, logs in with the provided token, and executes `eas build --platform <target> --profile <profile> --non-interactive` following [Expo’s EAS + GitHub Actions guide](https://expo.dev/blog/how-to-integrate-eas-workflows-with-github-actions).
+- The new Lite app reuses Expo defaults; initialize a project ID before running EAS. Update the app slug/name in `apps/asinu-lite/app.json` if you fork to another project space.
 
 ## 🔥 Smoke Harness (`npm run smoke`)
 
