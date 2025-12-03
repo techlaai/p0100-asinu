@@ -15,7 +15,7 @@ export const H2HeroBanner = ({ name, relationship, summary, action, supporters =
   return (
     <LinearGradient colors={[colors.primary, colors.secondary]} style={styles.container}>
       <View style={styles.headerRow}>
-        <Avatar name={name} style={styles.avatar} />
+        <Avatar name={name} containerStyle={styles.avatar} />
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{name}</Text>
           {relationship ? <Text style={styles.meta}>{relationship}</Text> : null}

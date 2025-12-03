@@ -1,14 +1,15 @@
-import { Image, Text, View, StyleSheet, ViewStyle } from 'react-native';
+import { Image, Text, View, StyleSheet, ViewStyle, StyleProp, ImageStyle } from 'react-native';
 import { colors, spacing, typography } from '../styles';
 
 type Props = {
   name: string;
   imageUrl?: string;
   size?: number;
-  style?: ViewStyle;
+  containerStyle?: StyleProp<ViewStyle>;
+  imageStyle?: StyleProp<ImageStyle>;
 };
 
-export const Avatar = ({ name, imageUrl, size = 56, style }: Props) => {
+export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }: Props) => {
   const initials = name
     .split(' ')
     .map((part) => part.charAt(0))
@@ -17,7 +18,7 @@ export const Avatar = ({ name, imageUrl, size = 56, style }: Props) => {
     .toUpperCase();
 
   if (imageUrl) {
-    return <Image source={{ uri: imageUrl }} style={[{ width: size, height: size, borderRadius: size / 2 }, style]} />;
+    return <Image source={{ uri: imageUrl }} style={[{ width: size, height: size, borderRadius: size / 2 }, imageStyle]} />;
   }
 
   return (
@@ -29,7 +30,7 @@ export const Avatar = ({ name, imageUrl, size = 56, style }: Props) => {
           borderRadius: size / 2
         },
         styles.placeholder,
-        style
+        containerStyle
       ]}
     >
       <Text style={styles.initials}>{initials}</Text>
@@ -48,6 +49,7 @@ const styles = StyleSheet.create({
   initials: {
     color: colors.textPrimary,
     fontWeight: '700',
-    fontSize: typography.size.lg
+    fontSize: typography.size.lg,
+    fontFamily: 'System'
   }
 });

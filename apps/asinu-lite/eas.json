@@ -1,17 +1,29 @@
 {
   "cli": {
-    "version": ">= 7.0.0"
+    "version": ">= 13.0.0"
   },
   "build": {
     "development": {
+      "developmentClient": true,
       "distribution": "internal",
-      "developmentClient": true
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "dev"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "staging"
+      }
     },
     "production": {
-      "autoIncrement": "version"
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "prod"
+      }
     }
   }
 }

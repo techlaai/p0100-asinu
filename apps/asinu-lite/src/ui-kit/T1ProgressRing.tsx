@@ -1,6 +1,6 @@
-import Svg, { Circle } from 'react-native-svg';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, spacing } from '../styles';
+import { featureFlags } from '../lib/featureFlags';
 
 export type T1ProgressRingProps = {
   percentage: number;
@@ -17,6 +17,21 @@ export const T1ProgressRing = ({
   strokeWidth = 10,
   accentColor = colors.secondary
 }: T1ProgressRingProps) => {
+  const disableCharts = featureFlags.disableCharts;
+
+  if (disableCharts) {
+    return (
+      <View style={[styles.container, { width: size, height: size, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={styles.percent}>{Math.round(percentage * 100)}%</Text>
+        <Text style={styles.label}>{label}</Text>
+      </View>
+    );
+  }
+
+  // Lazy require to tránh tải react-native-svg khi không cần
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { default: Svg, Circle } = require('react-native-svg');
+
   const normalizedRadius = size / 2 - strokeWidth;
   const circumference = normalizedRadius * 2 * Math.PI;
   const strokeDashoffset = circumference - Math.min(Math.max(percentage, 0), 1) * circumference;

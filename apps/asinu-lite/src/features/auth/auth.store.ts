@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { authApi, LoginPayload } from './auth.api';
-import { storage } from '../../lib/storage';
-import { env } from '../../lib/env';
 import { buildBypassProfile } from './auth.dev-bypass';
+import { tokenStore } from '../../lib/tokenStore';
+import { featureFlags } from '../../lib/featureFlags';
 
 export type Profile = {
   id: string;
@@ -23,20 +23,19 @@ type AuthState = {
   logout: () => Promise<void>;
 };
 
-const TOKEN_KEY = 'asinu-lite:token';
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   profile: null,
   token: null,
   loading: false,
   async bootstrap() {
     set({ loading: true, error: undefined });
-    if (env.devBypassAuth) {
+    if (featureFlags.devBypassAuth) {
       set({ profile: buildBypassProfile(), loading: false });
       return;
     }
 
-    const token = await storage.get<string>(TOKEN_KEY);
+    await tokenStore.loadToken();
+    const token = tokenStore.getToken();
     if (token) {
       try {
         const profile = await authApi.fetchProfile();
@@ -50,15 +49,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   async login(payload) {
     set({ loading: true, error: undefined });
+    if (featureFlags.devBypassAuth) {
+      const fakeProfile = buildBypassProfile();
+      await tokenStore.setToken('dev-bypass');
+      set({ profile: fakeProfile, token: 'dev-bypass', loading: false });
+      return;
+    }
+    console.log('[auth.store] login payload:', payload);
     try {
       const response = await authApi.login(payload);
       const token = response.token || null;
       const profile = response.profile || (await authApi.fetchProfile());
       if (token) {
-        await storage.set(TOKEN_KEY, token);
+        await tokenStore.setToken(token);
       }
       set({ profile, token, loading: false });
     } catch (error) {
+      console.log('[auth.store] login failed:', error);
       set({ loading: false, error: (error as Error).message });
       throw error;
     }
@@ -69,7 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.warn('logout failed but continuing', error);
     }
-    await storage.remove(TOKEN_KEY);
+    await tokenStore.clearToken();
     set({ profile: null, token: null });
   }
 }));

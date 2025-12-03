@@ -4,10 +4,24 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/template/*": ["src/template/*"]
+      "@/*": [
+        "src/*"
+      ],
+      "@/template/*": [
+        "src/template/*"
+      ]
     }
   },
-  "include": ["app", "src", "expo-env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "app",
+    "src",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/template/**/*",
+    "app/template/**/*",
+    "src/_archive/**/*"
+  ]
 }

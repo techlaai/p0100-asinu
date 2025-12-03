@@ -7,10 +7,14 @@
     "scheme": "asinu-lite",
     "userInterfaceStyle": "light",
     "jsEngine": "hermes",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.diabot.asinulite"
+    },
+    "android": {
+      "package": "com.diabot.asinulite"
     },
     "web": {
       "bundler": "metro",
@@ -19,7 +23,14 @@
     },
     "plugins": ["expo-router"],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "reactNativeNewArchitecture": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bd2749a5-5dda-41fa-b306-648331738cde"
+      }
     }
   }
 }

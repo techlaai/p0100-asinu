@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { H2HeroBanner } from '../../../src/ui-kit/H2HeroBanner';
 import { M1MetricCard } from '../../../src/ui-kit/M1MetricCard';
 import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
@@ -10,68 +11,97 @@ import { Button } from '../../../src/components/Button';
 import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { FloatingActionButton } from '../../../src/components/FloatingActionButton';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
+import { Screen } from '../../../src/components/Screen';
+import { LogEntry } from '../../../src/features/logs/logs.store';
+import { StateLoading } from '../../../src/components/state/StateLoading';
+import { StateError } from '../../../src/components/state/StateError';
+import { OfflineBanner } from '../../../src/components/OfflineBanner';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { quickMetrics, missions, treeSummary, logs } = useHomeViewModel();
+  const {
+    quickMetrics,
+    missions,
+    treeSummary,
+    logs,
+    logsStatus,
+    missionsStatus,
+    treeStatus,
+    logsError,
+    missionsError,
+    treeError,
+    anyStale,
+    refreshAll
+  } = useHomeViewModel();
   const profile = useAuthStore((state) => state.profile);
+  const insets = useSafeAreaInsets();
+  const padTop = insets.top + spacing.lg;
+
+  const hasData = Boolean(treeSummary || missions.length || logs.length);
+  const loading = logsStatus === 'loading' && missionsStatus === 'loading' && treeStatus === 'loading' && !hasData;
+  const noDataError =
+    (logsError === 'no-data' || missionsError === 'no-data' || treeError === 'no-data') && !hasData;
 
   return (
-    <View style={{ flex: 1 }}>
+    <Screen>
+      {anyStale ? <OfflineBanner /> : null}
+      {loading ? <StateLoading /> : null}
+      {noDataError ? <StateError onRetry={refreshAll} message="Khong tai du lieu duoc" /> : null}
+      {!hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message="Chua co du lieu" /> : null}
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingTop: padTop }]}
         showsVerticalScrollIndicator={false}
       >
         <H2HeroBanner
-          name={profile?.name || 'Người chăm sóc'}
+          name={profile?.name || 'Nguoi cham soc'}
           relationship={profile?.relationship}
-          summary="Cảm ơn bạn đã đồng hành cùng bố/mẹ mỗi ngày."
-          action={<Button label="Cài đặt" variant="ghost" onPress={() => router.push('/settings')} />}
-          supporters={["Gia đình", 'Bác sĩ gia đình']}
+          summary="Cung dong hanh voi ban moi ngay."
+          action={<Button label="Cai dat" variant="ghost" onPress={() => router.push('/settings')} />}
+          supporters={['Gia dinh', 'Bac si gia dinh']}
         />
 
         <View style={styles.metricsRow}>
           <M1MetricCard
-            title="Đường huyết"
+            title="Duong huyet"
             value={quickMetrics.glucose}
             unit="mg/dL"
             trend="flat"
-            footnote="Ghi trước ăn sáng"
+            footnote="Ghi truoc bua sang"
             onPress={() => router.push('/logs/glucose')}
           />
           <M1MetricCard
-            title="Huyết áp"
+            title="Huyet ap"
             value={quickMetrics.bloodPressure}
             unit="mmHg"
             trend="down"
             accentColor={colors.secondary}
-            footnote="Theo dõi sáng nay"
+            footnote="Theo doi sang nay"
             onPress={() => router.push('/logs/blood-pressure')}
           />
         </View>
 
-        <H1SectionHeader title="Nhiệm vụ hôm nay" subtitle="Cố gắng hoàn thành top 3" />
+        <H1SectionHeader title="Nhiem vu hom nay" subtitle="Co gang hoan thanh top 3" />
         <View style={styles.cardList}>
           {missions.map((mission) => (
             <View key={mission.id} style={styles.missionCard}>
               <Text style={styles.missionTitle}>{mission.title}</Text>
               <Text style={styles.missionDesc}>{mission.description}</Text>
-              <Button label={mission.completed ? 'Đã xong' : 'Hoàn thành'} onPress={() => router.push('/missions')} />
+              <Button label={mission.completed ? 'Da xong' : 'Hoan thanh'} onPress={() => router.push('/missions')} />
             </View>
           ))}
         </View>
 
-        <H1SectionHeader title="Cây sức khoẻ" subtitle="Tiến trình tuần này" />
+        <H1SectionHeader title="Cay suc khoe" subtitle="Tien trinh tuan nay" />
         <View style={styles.treeRow}>
-          <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label="Điểm" />
+          <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label="Diem" />
           <View style={styles.treeStats}>
-            <Text style={styles.treeStat}>Chuỗi ngày tốt: {treeSummary?.streakDays ?? 0}</Text>
-            <Text style={styles.treeStat}>Nhiệm vụ/tuần: {treeSummary?.completedThisWeek ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
-            <Button label="Xem chi tiết" variant="ghost" onPress={() => router.push('/tree')} />
+            <Text style={styles.treeStat}>Chuoi ngay tot: {treeSummary?.streakDays ?? 0}</Text>
+            <Text style={styles.treeStat}>Nhiem vu/tuan: {treeSummary?.completedThisWeek ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
+            <Button label="Xem chi tiet" variant="ghost" onPress={() => router.push('/tree')} />
           </View>
         </View>
 
-        <H1SectionHeader title="Xu hướng" subtitle="7 ngày" />
+        <H1SectionHeader title="Xu huong" subtitle="7 ngay" />
         <C1TrendChart
           data={
             treeSummary
@@ -88,8 +118,8 @@ export default function HomeScreen() {
           }
         />
 
-        <H1SectionHeader title="Logs gần đây" subtitle="Ghi nhanh" />
-        {logs.slice(0, 3).map((log) => (
+        <H1SectionHeader title="Logs gan day" subtitle="Ghi nhanh" />
+        {logs.slice(0, 3).map((log: LogEntry) => (
           <View key={log.id} style={styles.logRow}>
             <Text style={styles.logType}>{log.type}</Text>
             <Text style={styles.logValue}>
@@ -101,13 +131,14 @@ export default function HomeScreen() {
         ))}
       </ScrollView>
       <FloatingActionButton label="Ghi nhanh" onPress={() => router.push('/logs')} />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
     gap: spacing.lg
   },
   metricsRow: {

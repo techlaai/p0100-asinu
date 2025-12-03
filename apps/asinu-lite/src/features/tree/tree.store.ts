@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { treeApi } from './tree.api';
+import { featureFlags } from '../../lib/featureFlags';
+import { localCache } from '../../lib/localCache';
+import { CACHE_KEYS } from '../../lib/cacheKeys';
+import { logError } from '../../lib/logger';
 
 export type TreeSummary = {
   score: number;
@@ -13,11 +17,15 @@ export type TreeHistoryPoint = {
   value: number;
 };
 
+type ErrorState = 'none' | 'remote-failed' | 'no-data';
+
 type TreeState = {
   summary: TreeSummary | null;
   history: TreeHistoryPoint[];
   status: 'idle' | 'loading' | 'success' | 'error';
-  fetchTree: () => Promise<void>;
+  isStale: boolean;
+  errorState: ErrorState;
+  fetchTree: (signal?: AbortSignal) => Promise<void>;
 };
 
 const fallbackSummary: TreeSummary = {
@@ -41,14 +49,37 @@ export const useTreeStore = create<TreeState>((set) => ({
   summary: null,
   history: [],
   status: 'idle',
-  async fetchTree() {
-    set({ status: 'loading' });
+  isStale: false,
+  errorState: 'none',
+  async fetchTree(signal) {
+    if (featureFlags.devBypassAuth) {
+      set({ summary: fallbackSummary, history: fallbackHistory, status: 'success', isStale: false, errorState: 'none' });
+      return;
+    }
+
+    let usedCache = false;
+    const cached = await localCache.getCached<{ summary: TreeSummary; history: TreeHistoryPoint[] }>(CACHE_KEYS.TREE, '1');
+    if (cached) {
+      set({ summary: cached.summary, history: cached.history, status: 'success', isStale: true, errorState: 'none' });
+      usedCache = true;
+    } else {
+      set({ status: 'loading', errorState: 'none', isStale: false });
+    }
+
     try {
-      const [summary, history] = await Promise.all([treeApi.fetchSummary(), treeApi.fetchHistory()]);
-      set({ summary, history, status: 'success' });
+      const [summary, history] = await Promise.all([
+        treeApi.fetchSummary({ signal }),
+        treeApi.fetchHistory({ signal })
+      ]);
+      set({ summary, history, status: 'success', isStale: false, errorState: 'none' });
+      await localCache.setCached(CACHE_KEYS.TREE, '1', { summary, history });
     } catch (error) {
-      console.warn('Using fallback tree data', error);
-      set({ summary: fallbackSummary, history: fallbackHistory, status: 'error' });
+      if (usedCache) {
+        set({ status: 'success', isStale: true, errorState: 'remote-failed' });
+      } else {
+        set({ summary: fallbackSummary, history: fallbackHistory, status: 'error', isStale: false, errorState: 'no-data' });
+      }
+      logError(error, { store: 'tree', action: 'fetchTree', usedCache });
     }
   }
 }));

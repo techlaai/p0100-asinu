@@ -40,9 +40,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.size.md,
     fontWeight: '600',
-    color: colors.textPrimary
+    color: colors.textPrimary,
+    fontFamily: 'System'
   },
   subtitle: {
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontFamily: 'System'
   }
 });

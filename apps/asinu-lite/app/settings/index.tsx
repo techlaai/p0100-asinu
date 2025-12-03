@@ -1,16 +1,22 @@
-import { ScrollView, StyleSheet, Text, View, Switch } from 'react-native';
 import { useState } from 'react';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 import { Button } from '../../src/components/Button';
-import { colors, spacing, typography } from '../../src/styles';
+import { ListItem } from '../../src/components/ListItem';
+import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
+import { colors, spacing, typography } from '../../src/styles';
+import { openExternal, PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL } from '../../src/lib/links';
 
 export default function SettingsScreen() {
   const logout = useAuthStore((state) => state.logout);
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const padTop = insets.top + spacing.lg;
 
   const handleLogout = async () => {
     await logout();
@@ -18,31 +24,49 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <H1SectionHeader title="Cài đặt" />
-      <View style={styles.row}>
-        <View>
-          <Text style={styles.title}>Thông báo</Text>
-          <Text style={styles.subtitle}>Nhận nhắc nhở log</Text>
+    <Screen>
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: padTop }]}>
+        <H1SectionHeader title="Cài đặt" />
+        <View style={styles.row}>
+          <View>
+            <Text style={styles.title}>Thông báo</Text>
+            <Text style={styles.subtitle}>Nhận nhắc nhở log</Text>
+          </View>
+          <Switch value={notifications} onValueChange={setNotifications} />
         </View>
-        <Switch value={notifications} onValueChange={setNotifications} />
-      </View>
-      <View style={styles.row}>
-        <View>
-          <Text style={styles.title}>Nhắc nhiệm vụ</Text>
-          <Text style={styles.subtitle}>Nhận push khi gần hết ngày</Text>
+        <View style={styles.row}>
+          <View>
+            <Text style={styles.title}>Nhắc nhiệm vụ</Text>
+            <Text style={styles.subtitle}>Nhận push khi gần hết ngày</Text>
+          </View>
+          <Switch value={reminders} onValueChange={setReminders} />
         </View>
-        <Switch value={reminders} onValueChange={setReminders} />
-      </View>
-      <Button label="Đăng xuất" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
-    </ScrollView>
+
+        <H1SectionHeader title="Hỗ trợ & pháp lý" />
+        <ListItem title="Điều khoản sử dụng" onPress={() => openExternal(TERMS_URL)} />
+        <ListItem
+          title="Chính sách quyền riêng tư"
+          onPress={() => openExternal(PRIVACY_URL)}
+          style={{ marginTop: spacing.md }}
+        />
+        <ListItem
+          title="Liên hệ hỗ trợ"
+          subtitle="support@asinu.health"
+          onPress={() => openExternal(SUPPORT_EMAIL)}
+          style={{ marginTop: spacing.md }}
+        />
+
+        <Button label="Đăng xuất" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
+      </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: spacing.xl,
-    gap: spacing.lg
+    gap: spacing.lg,
+    backgroundColor: colors.background
   },
   row: {
     flexDirection: 'row',

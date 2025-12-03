@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { missionsApi } from './missions.api';
+import { featureFlags } from '../../lib/featureFlags';
+import { localCache } from '../../lib/localCache';
+import { CACHE_KEYS } from '../../lib/cacheKeys';
+import { logError } from '../../lib/logger';
 
 export type Mission = {
   id: string;
@@ -11,19 +15,22 @@ export type Mission = {
   category?: string;
 };
 
+type ErrorState = 'none' | 'remote-failed' | 'no-data';
+
 type MissionsState = {
   missions: Mission[];
   status: 'idle' | 'loading' | 'success' | 'error';
-  error?: string;
-  fetchMissions: () => Promise<void>;
+  isStale: boolean;
+  errorState: ErrorState;
+  fetchMissions: (signal?: AbortSignal) => Promise<void>;
   toggleComplete: (id: string) => Promise<void>;
 };
 
 const fallbackMissions: Mission[] = [
   {
     id: 'mission-1',
-    title: 'Nhắc bố đo đường huyết sáng nay',
-    description: 'Trước ăn sáng, ghi log glucose',
+    title: 'Nhac do duong huyet sang nay',
+    description: 'Truoc an sang, ghi log glucose',
     scheduledAt: new Date().toISOString(),
     completed: false,
     points: 10,
@@ -31,8 +38,8 @@ const fallbackMissions: Mission[] = [
   },
   {
     id: 'mission-2',
-    title: 'Đi bộ 15 phút',
-    description: 'Cùng bố đi bộ nhẹ',
+    title: 'Di bo 15 phut',
+    description: 'Cung bo di bo nhe',
     scheduledAt: new Date().toISOString(),
     completed: false,
     points: 8,
@@ -40,8 +47,8 @@ const fallbackMissions: Mission[] = [
   },
   {
     id: 'mission-3',
-    title: 'Uống thuốc huyết áp',
-    description: 'Nhắc bố uống đúng giờ',
+    title: 'Uong thuoc huyet ap',
+    description: 'Nhac uong dung gio',
     scheduledAt: new Date().toISOString(),
     completed: true,
     points: 5,
@@ -52,14 +59,32 @@ const fallbackMissions: Mission[] = [
 export const useMissionsStore = create<MissionsState>((set, get) => ({
   missions: [],
   status: 'idle',
-  async fetchMissions() {
-    set({ status: 'loading', error: undefined });
+  isStale: false,
+  errorState: 'none',
+  async fetchMissions(signal) {
+    if (featureFlags.devBypassAuth) {
+      set({ missions: fallbackMissions, status: 'success', isStale: false, errorState: 'none' });
+      return;
+    }
+    let usedCache = false;
+    const cached = await localCache.getCached<Mission[]>(CACHE_KEYS.MISSIONS, '1');
+    if (cached) {
+      set({ missions: cached, status: 'success', isStale: true, errorState: 'none' });
+      usedCache = true;
+    } else {
+      set({ status: 'loading', errorState: 'none', isStale: false });
+    }
     try {
-      const missions = await missionsApi.fetchMissions();
-      set({ missions, status: 'success' });
+      const missions = await missionsApi.fetchMissions({ signal });
+      set({ missions, status: 'success', isStale: false, errorState: 'none' });
+      await localCache.setCached(CACHE_KEYS.MISSIONS, '1', missions);
     } catch (error) {
-      console.warn('Using fallback missions', error);
-      set({ missions: fallbackMissions, status: 'error', error: (error as Error).message });
+      if (usedCache) {
+        set({ status: 'success', isStale: true, errorState: 'remote-failed' });
+      } else {
+        set({ status: 'error', errorState: 'no-data', isStale: false, missions: fallbackMissions });
+      }
+      logError(error, { store: 'missions', action: 'fetchMissions', usedCache });
     }
   },
   async toggleComplete(id) {

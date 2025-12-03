@@ -4,14 +4,18 @@ import { useMissionsStore } from './missions.store';
 export const useMissionActions = () => {
   const missions = useMissionsStore((state) => state.missions);
   const status = useMissionsStore((state) => state.status);
+  const isStale = useMissionsStore((state) => state.isStale);
+  const errorState = useMissionsStore((state) => state.errorState);
   const fetchMissions = useMissionsStore((state) => state.fetchMissions);
   const toggleComplete = useMissionsStore((state) => state.toggleComplete);
 
   useEffect(() => {
     if (status === 'idle') {
-      fetchMissions();
+      const controller = new AbortController();
+      fetchMissions(controller.signal);
+      return () => controller.abort();
     }
   }, [status, fetchMissions]);
 
-  return { missions, status, toggleComplete };
+  return { missions, status, isStale, errorState, fetchMissions, toggleComplete };
 };

@@ -1,21 +1,21 @@
-import { router } from 'expo-router';
+import { router, Href } from 'expo-router';
 
 export const navigation = {
   goToLogin() {
-    router.replace('/login');
+    router.replace('/login' as Href);
   },
   goToHome() {
-    router.replace('/(tabs)/home');
+    router.replace('/(tabs)/home' as Href);
   },
   goToSettings() {
-    router.push('/settings');
+    router.push('/settings' as Href);
   },
-  goToLogs(type?: 'glucose' | 'blood-pressure' | 'medication') {
+  goToLogs(type?: 'glucose' | 'blood-pressure' | 'medication' | 'weight' | 'water' | 'meal' | 'insulin') {
     if (!type) {
-      router.push('/logs');
+      router.push('/logs' as Href);
       return;
     }
-    const path = `/logs/${type === 'blood-pressure' ? 'blood-pressure' : type}`;
+    const path = `/logs/${type === 'blood-pressure' ? 'blood-pressure' : type}` as Href;
     router.push(path);
   }
 };

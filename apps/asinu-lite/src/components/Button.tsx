@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.size.md,
-    fontWeight: '600'
+    fontWeight: '600',
+    fontFamily: 'System'
   }
 });

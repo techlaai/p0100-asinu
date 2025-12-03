@@ -33,6 +33,7 @@ const styles = StyleSheet.create({
   label: {
     color: colors.surface,
     fontSize: typography.size.md,
-    fontWeight: '700'
+    fontWeight: '700',
+    fontFamily: 'System'
   }
 });

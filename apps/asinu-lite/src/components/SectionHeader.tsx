@@ -29,10 +29,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.size.lg,
     fontWeight: '700',
-    color: colors.textPrimary
+    color: colors.textPrimary,
+    fontFamily: 'System'
   },
   subtitle: {
     color: colors.textSecondary,
-    marginTop: spacing.xs
+    marginTop: spacing.xs,
+    fontFamily: 'System'
   }
 });
