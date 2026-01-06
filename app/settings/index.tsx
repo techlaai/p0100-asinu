@@ -4,52 +4,38 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 import { Button } from '../../src/components/Button';
-import { ListItem } from '../../src/components/ListItem';
 import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { colors, spacing, typography } from '../../src/styles';
-import { openExternal, SUPPORT_EMAIL } from '../../src/lib/links';
 
 export default function SettingsScreen() {
   const logout = useAuthStore((state) => state.logout);
-  const deleteAccount = useAuthStore((state) => state.deleteAccount);
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
-  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
-  const openLegal = (type: 'terms' | 'privacy') => {
-    router.push({ pathname: '/legal/content', params: { type } });
-  };
 
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
   };
 
-  const confirmDeleteAccount = async () => {
-    setDeleting(true);
-    try {
-      await deleteAccount();
-      router.replace('/login');
-    } catch (error) {
-      Alert.alert(
-        'Không thể xóa tài khoản',
-        'Vui lòng thử lại hoặc liên hệ hỗ trợ để được trợ giúp.'
-      );
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Xóa tài khoản?',
-      'Hành động này sẽ xóa vĩnh viễn dữ liệu và không thể hoàn tác.',
+      'Xác nhận xóa?',
+      'Hành động này không thể hoàn tác. Mọi dữ liệu sức khỏe sẽ bị xóa vĩnh viễn.',
       [
         { text: 'Hủy', style: 'cancel' },
-        { text: 'Xóa', style: 'destructive', onPress: confirmDeleteAccount }
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Yêu cầu đã được ghi nhận. Hệ thống sẽ xử lý trong 24h.'
+            );
+          }
+        }
       ]
     );
   };
@@ -73,29 +59,15 @@ export default function SettingsScreen() {
           <Switch value={reminders} onValueChange={setReminders} />
         </View>
 
-        <H1SectionHeader title="Hỗ trợ & pháp lý" />
-        <ListItem title="Điều khoản sử dụng" onPress={() => openLegal('terms')} />
-        <ListItem
-          title="Chính sách quyền riêng tư"
-          onPress={() => openLegal('privacy')}
-          style={{ marginTop: spacing.md }}
-        />
-        <ListItem
-          title="Liên hệ hỗ trợ"
-          subtitle="support@asinu.health"
-          onPress={() => openExternal(SUPPORT_EMAIL)}
-          style={{ marginTop: spacing.md }}
-        />
-
         <Button label="Đăng xuất" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
         <Button
-          label={deleting ? 'Đang xóa tài khoản...' : 'Xóa tài khoản'}
+          label="Xóa tài khoản"
           variant="ghost"
           onPress={handleDeleteAccount}
-          disabled={deleting}
           style={{ marginTop: spacing.md, borderColor: colors.danger }}
           textStyle={{ color: colors.danger }}
         />
+        <Text style={styles.versionText}>v0.9.1 (Build: Preview)</Text>
       </ScrollView>
     </Screen>
   );
@@ -123,5 +95,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.textSecondary
+  },
+  versionText: {
+    marginTop: spacing.lg,
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: 13,
+    width: '100%'
   }
 });

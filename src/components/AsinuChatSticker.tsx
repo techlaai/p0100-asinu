@@ -8,12 +8,12 @@ type AsinuChatStickerProps = {
 };
 
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
-    console.log('RENDERED: src/components/AsinuChatSticker.tsx');
+    console.log('RENDERED_V2: src/components/AsinuChatSticker.tsx');
   return (
     <Pressable style={styles.wrapper} onPress={onPress} accessibilityRole="button">
-      <Image source={AsinuSticker} style={styles.sticker} resizeMode="cover" />
+      <Image source={AsinuSticker} style={styles.sticker} resizeMode="contain" />
       <View style={styles.bubble} pointerEvents="none">
-        <Text style={styles.bubbleText}>Đang test 1 2 3!</Text>
+        <Text style={styles.bubbleText}>Hãy nói chuyện với Asinu nhé!</Text>
         <View style={styles.tail} />
       </View>
     </Pressable>
@@ -32,8 +32,8 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   sticker: {
-    width: 280,
-    height: 280, // to gấp 2.5 lần
+    width: 200,
+    height: 200, // match source asset size to avoid upscaling blur
     aspectRatio: 1,
     shadowColor: '#000000ff',
     shadowOpacity: 0.18,

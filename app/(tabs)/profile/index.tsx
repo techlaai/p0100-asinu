@@ -1,89 +1,74 @@
-import { useEffect } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+﻿import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
-import { useFlagsStore } from '../../../src/features/app-config/flags.store';
-import { F1ProfileSummary } from '../../../src/ui-kit/F1ProfileSummary';
 import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
-import { ListItem } from '../../../src/components/ListItem';
 import { Button } from '../../../src/components/Button';
 import { Screen } from '../../../src/components/Screen';
-import { colors, spacing } from '../../../src/styles';
-import { DEMO_ACCOUNT_EMAIL, DEMO_ACCOUNT_PASSWORD, openExternal, SUPPORT_EMAIL } from '../../../src/lib/links';
+import { colors, spacing, typography } from '../../../src/styles';
+import { DEMO_ACCOUNT_EMAIL, DEMO_ACCOUNT_PASSWORD } from '../../../src/lib/links';
 
 export default function ProfileScreen() {
   const profile = useAuthStore((state) => state.profile);
-  const logout = useAuthStore((state) => state.logout);
-  const flags = useFlagsStore();
-  const fetchFlags = useFlagsStore((state) => state.fetchFlags);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
-  const openLegal = (type: 'terms' | 'privacy') => {
-    router.push({ pathname: '/legal/content', params: { type } });
+
+  const name = profile?.name?.trim() ?? '';
+  const phone = profile?.phone?.trim() ?? '';
+  const hasProfile = Boolean(profile);
+  const identityTitle = hasProfile
+    ? name || 'Chưa cập nhật'
+    : phone
+      ? 'Khách hàng mới'
+      : 'Chưa đăng nhập';
+  const statusText = hasProfile ? 'Đang hoạt động' : 'Chưa đăng nhập';
+
+  const handleEditProfile = () => {
+    Alert.alert('Tính năng sẽ có trong bản sau');
   };
 
-  useEffect(() => {
-    if (flags.status === 'idle') {
-      fetchFlags();
-    }
-  }, [flags.status, fetchFlags]);
-
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/login');
-  };
+  const lastGlucose = '';
+  const lastBloodPressure = '';
+  const todayTasks = '';
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={[styles.container, { paddingTop: padTop }]}>
-        {profile ? (
-          <F1ProfileSummary
-            name={profile.name}
-            email={profile.email}
-            phone={profile.phone}
-            caretakerFor={profile.relationship}
-          />
-        ) : null}
-
-        <H1SectionHeader title="Tính năng" subtitle="Trạng thái cờ" />
-        <ListItem
-          title="Mood Tracker"
-          subtitle={flags.FEATURE_MOOD_TRACKER ? 'Đã bật' : 'Đang tắt'}
-          onPress={() => fetchFlags()}
-        />
-        {flags.FEATURE_AI_CHAT && flags.ENABLE_ADVANCED_AI ? (
-          <ListItem
-            title="AI Chat"
-            subtitle="Đang bật"
-            onPress={() => router.push('/ai-chat')}
-            style={{ marginTop: spacing.md }}
-          />
-        ) : null}
+        <H1SectionHeader title="Tài khoản" />
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{identityTitle}</Text>
+          {hasProfile ? (
+            <>
+              <Text style={styles.cardRow}>Họ tên: {name || 'Chưa cập nhật'}</Text>
+              <Text style={[styles.cardRow, { marginTop: spacing.sm }]}>Số điện thoại: {phone || 'Chưa cập nhật'}</Text>
+            </>
+          ) : phone ? (
+            <Text style={styles.cardRow}>Số điện thoại: {phone}</Text>
+          ) : null}
+          <Text style={[styles.cardStatus, !hasProfile && styles.cardStatusMuted]}>{statusText}</Text>
+        </View>
 
         <H1SectionHeader title="Tùy chọn" />
         <Button label="Mở cài đặt" variant="warning" onPress={() => router.push('/settings')} />
-        <Button label="Đăng xuất" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.md }} />
+        <Button
+          label="Chỉnh sửa hồ sơ"
+          variant="secondary"
+          onPress={handleEditProfile}
+          style={{ marginTop: spacing.md }}
+        />
 
-        <H1SectionHeader title="Hỗ trợ & pháp lý" />
-        <ListItem title="Điều khoản sử dụng" onPress={() => openLegal('terms')} />
-        <ListItem
-          title="Chính sách quyền riêng tư"
-          onPress={() => openLegal('privacy')}
-          style={{ marginTop: spacing.md }}
-        />
-        <ListItem
-          title="Liên hệ hỗ trợ"
-          subtitle="support@asinu.health"
-          onPress={() => openExternal(SUPPORT_EMAIL)}
-          style={{ marginTop: spacing.md }}
-        />
-        <ListItem
-          title="Tai khoan demo"
-          subtitle={`${DEMO_ACCOUNT_EMAIL} / ${DEMO_ACCOUNT_PASSWORD}`}
-          style={{ marginTop: spacing.md }}
-        />
+        <H1SectionHeader title="Tổng quan sức khỏe" />
+        <View style={styles.card}>
+          <Text style={styles.cardRow}>Đường huyết gần nhất: {lastGlucose}</Text>
+          <Text style={[styles.cardRow, { marginTop: spacing.sm }]}>Huyết áp gần nhất: {lastBloodPressure}</Text>
+          <Text style={[styles.cardRow, { marginTop: spacing.sm }]}>Nhiệm vụ hôm nay: {todayTasks}</Text>
+        </View>
+
+        <H1SectionHeader title="Tài khoản demo" />
+        <View style={styles.card}>
+          <Text style={styles.cardRow}>{`${DEMO_ACCOUNT_EMAIL} / ${DEMO_ACCOUNT_PASSWORD}`}</Text>
+        </View>
       </ScrollView>
     </Screen>
   );
@@ -94,5 +79,31 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background
+  },
+  card: {
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  cardTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm
+  },
+  cardRow: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary
+  },
+  cardStatus: {
+    marginTop: spacing.sm,
+    fontSize: typography.size.sm,
+    color: colors.success,
+    fontWeight: '600'
+  },
+  cardStatusMuted: {
+    color: colors.textSecondary
   }
 });
