@@ -8,7 +8,7 @@ const initialMessages: ChatBubble[] = [
   {
     id: '1',
     role: 'assistant',
-    text: 'Xin chào, tôi là Asinu Chat. Bạn cần hỗ trợ gì?',
+    text: 'Xin chào, Asinu nè. Bạn cần hỗ trợ gì?',
     timestamp: new Date().toISOString()
   },
   { id: '2', role: 'user', text: 'Tôi muốn theo dõi sức khỏe hằng ngày.', timestamp: new Date().toISOString() }

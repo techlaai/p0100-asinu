@@ -38,7 +38,6 @@ export default function LoginEmailScreen() {
         <TextInput label="Mật khẩu" value={password} onChangeText={setPassword} secureTextEntry />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <Button label={loading ? 'Đang đăng nhập...' : 'Đăng nhập'} onPress={handleLogin} disabled={loading} />
-        <Button label="Đăng nhập bằng số điện thoại" variant="ghost" onPress={() => router.replace('/login/phone')} disabled={loading} />
       </View>
 
       <View style={styles.legal}>

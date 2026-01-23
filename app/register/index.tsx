@@ -34,10 +34,7 @@ export default function RegisterScreen() {
     setError(undefined);
     setLoading(true);
     try {
-      router.push({
-        pathname: '/login/otp',
-        params: { phone: phone.trim(), flow: 'signup' }
-      });
+      router.replace('/login');
     } catch (err) {
       setError((err as Error).message);
     } finally {
