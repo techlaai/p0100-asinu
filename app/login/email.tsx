@@ -5,13 +5,14 @@ import { useState } from 'react';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { colors, spacing, typography } from '../../src/styles';
-import { DEMO_ACCOUNT_EMAIL, DEMO_ACCOUNT_PASSWORD } from '../../src/lib/links';
+import { SocialProvider } from '../../src/features/auth/auth.service';
+import { colors, radius, spacing, typography } from '../../src/styles';
 
 export default function LoginEmailScreen() {
-  const [email, setEmail] = useState(DEMO_ACCOUNT_EMAIL);
-  const [password, setPassword] = useState(DEMO_ACCOUNT_PASSWORD);
-  const login = useAuthStore((state) => state.login);
+  const [phone, setPhone] = useState('');
+  const [pendingAction, setPendingAction] = useState<'phone' | SocialProvider | null>(null);
+  const loginWithPhone = useAuthStore((state) => state.loginWithPhone);
+  const loginWithSocial = useAuthStore((state) => state.loginWithSocial);
   const loading = useAuthStore((state) => state.loading);
   const error = useAuthStore((state) => state.error);
   const router = useRouter();
@@ -20,24 +21,83 @@ export default function LoginEmailScreen() {
     router.push({ pathname: '/legal/content', params: { type } });
   };
 
-  const handleLogin = async () => {
+  const handlePhoneLogin = async () => {
+    if (!phone.trim() || loading) return;
+    setPendingAction('phone');
     try {
-      await login({ email, password });
+      await loginWithPhone(phone.trim());
       router.replace('/(tabs)/home');
     } catch (err) {
       console.error(err);
+    } finally {
+      setPendingAction(null);
     }
   };
 
+  const handleSocialLogin = async (provider: SocialProvider) => {
+    if (loading) return;
+    setPendingAction(provider);
+    try {
+      await loginWithSocial(provider);
+      router.replace('/(tabs)/home');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const isSubmitting = loading;
+  const phoneButtonLoading = isSubmitting && pendingAction === 'phone';
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
-      <Text style={styles.title}>Đăng nhập bằng email</Text>
-      <Text style={styles.subtitle}>Nhập email và mật khẩu của bạn</Text>
+      <Text style={styles.title}>Đăng nhập</Text>
+      <Text style={styles.subtitle}>Nhập số điện thoại hoặc chọn mạng xã hội</Text>
       <View style={styles.form}>
-        <TextInput label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-        <TextInput label="Mật khẩu" value={password} onChangeText={setPassword} secureTextEntry />
+        <TextInput
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="Số điện thoại"
+          keyboardType="phone-pad"
+          style={styles.inputRounded}
+        />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <Button label={loading ? 'Đang đăng nhập...' : 'Đăng nhập'} onPress={handleLogin} disabled={loading} />
+        <Button
+          label={phoneButtonLoading ? 'Đang xử lý...' : 'Tiếp tục'}
+          onPress={handlePhoneLogin}
+          disabled={isSubmitting || !phone.trim()}
+          style={styles.primaryButton}
+        />
+        <View style={styles.divider}>
+          <Text style={styles.dividerText}>Hoặc tiếp tục với</Text>
+        </View>
+        <View style={styles.socialGroup}>
+          {(['google', 'apple', 'zalo'] as const).map((provider) => {
+            const isButtonLoading = isSubmitting && pendingAction === provider;
+            const label =
+              provider === 'google'
+                ? 'Tiếp tục với Google'
+                : provider === 'apple'
+                  ? 'Tiếp tục với Apple'
+                  : 'Tiếp tục với Zalo';
+
+            return (
+              <Pressable
+                key={provider}
+                onPress={() => handleSocialLogin(provider)}
+                disabled={isSubmitting}
+                style={({ pressed }) => [
+                  styles.socialButton,
+                  pressed && styles.socialButtonPressed,
+                  isSubmitting && styles.socialButtonDisabled
+                ]}
+              >
+                <Text style={styles.socialButtonText}>{isButtonLoading ? 'Đang xử lý...' : label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <View style={styles.legal}>
@@ -76,8 +136,47 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md
   },
+  inputRounded: {
+    borderRadius: radius.xxl
+  },
   errorText: {
     color: colors.danger
+  },
+  primaryButton: {
+    borderRadius: radius.xxl
+  },
+  divider: {
+    alignItems: 'center',
+    marginTop: spacing.sm
+  },
+  dividerText: {
+    color: colors.textSecondary,
+    fontSize: typography.size.sm,
+    fontWeight: '600'
+  },
+  socialGroup: {
+    gap: spacing.sm
+  },
+  socialButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.xxl,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center'
+  },
+  socialButtonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }]
+  },
+  socialButtonDisabled: {
+    opacity: 0.6
+  },
+  socialButtonText: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: colors.textPrimary
   },
   legal: {
     gap: spacing.xs,
