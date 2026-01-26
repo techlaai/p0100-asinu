@@ -2,7 +2,7 @@ import { env } from './env';
 import { isDevBuild } from './appEnv';
 
 export const featureFlags = {
-  devBypassAuth: isDevBuild && env.devBypassAuthRaw,
+  devBypassAuth: isDevBuild && env.devBypassAuth,
   disableCharts: isDevBuild && env.disableChartsRaw
 };
 
