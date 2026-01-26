@@ -3,6 +3,7 @@ import { authApi, LoginPayload } from './auth.api';
 import { buildBypassProfile } from './auth.dev-bypass';
 import { tokenStore } from '../../lib/tokenStore';
 import { featureFlags } from '../../lib/featureFlags';
+import { authService, SocialProvider } from './auth.service';
 
 export type Profile = {
   id: string;
@@ -20,6 +21,8 @@ type AuthState = {
   error?: string;
   bootstrap: () => Promise<void>;
   login: (payload: LoginPayload) => Promise<void>;
+  loginWithPhone: (phone: string) => Promise<void>;
+  loginWithSocial: (provider: SocialProvider) => Promise<void>;
   deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -105,6 +108,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ profile, token, loading: false });
     } catch (error) {
       console.log('[auth.store] login failed:', error);
+      set({ loading: false, error: (error as Error).message });
+      throw error;
+    }
+  },
+  async loginWithPhone(phone) {
+    set({ loading: true, error: undefined });
+    try {
+      const response = await authService.submitPhoneAuth({ phone });
+      const token = response.token || null;
+      const profile = response.profile || null;
+      if (token) {
+        await tokenStore.setToken(token);
+      }
+      set({ profile, token, loading: false });
+    } catch (error) {
+      console.log('[auth.store] phone login failed:', error);
+      set({ loading: false, error: (error as Error).message });
+      throw error;
+    }
+  },
+  async loginWithSocial(provider) {
+    set({ loading: true, error: undefined });
+    try {
+      const response = await authService.submitSocialAuth({
+        provider,
+        token: '',
+        rawProfile: {}
+      });
+      const token = response.token || null;
+      const profile = response.profile || null;
+      if (token) {
+        await tokenStore.setToken(token);
+      }
+      set({ profile, token, loading: false });
+    } catch (error) {
+      console.log('[auth.store] social login failed:', error);
       set({ loading: false, error: (error as Error).message });
       throw error;
     }
