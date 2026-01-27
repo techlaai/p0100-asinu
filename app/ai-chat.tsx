@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
 import { chatApi } from '../src/features/chat/chat.api';
 import { colors } from '../src/styles';
+import { navigation } from '../src/lib/navigation';
 
 const initialMessages: ChatBubble[] = [
   {
@@ -13,6 +14,12 @@ const initialMessages: ChatBubble[] = [
   },
   { id: '2', role: 'user', text: 'Tôi muốn theo dõi sức khỏe hằng ngày.', timestamp: new Date().toISOString() }
 ];
+
+const isUnauthorized = (error: unknown) => {
+  if (!error) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('401') || message.toLowerCase().includes('missing token');
+};
 
 export default function AiChatScreen() {
   const [messages, setMessages] = useState<ChatBubble[]>(initialMessages);
@@ -35,10 +42,7 @@ export default function AiChatScreen() {
     setMessages((prev) => [...prev, userMessage]);
     setIsTyping(true);
     try {
-      const history = [...messages, userMessage]
-        .slice(-6)
-        .map(({ role, text: entryText }) => ({ role, text: entryText }));
-      const { reply } = await chatApi.sendMessage({ message: text, history });
+      const { reply } = await chatApi.sendMessage({ message: text, context: { lang: 'vi' } });
       const assistantText = reply || 'Xin lỗi, tôi chưa thể trả lời lúc này.';
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
@@ -48,6 +52,11 @@ export default function AiChatScreen() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      if (isUnauthorized(error)) {
+        navigation.goToLogin();
+        setIsTyping(false);
+        return;
+      }
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',

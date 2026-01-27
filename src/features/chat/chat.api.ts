@@ -1,26 +1,25 @@
-import { apiClient } from '../../lib/apiClient';
+﻿import { apiClient } from '../../lib/apiClient';
 
 export type ChatRequest = {
   message: string;
-  history?: Array<{ role: 'assistant' | 'user'; text: string }>;
+  client_ts: number;
+  context?: { lang?: string };
 };
 
 export type ChatResponse = {
-  reply?: string;
-  message?: string;
-  text?: string;
-};
-
-const resolveReply = (response: ChatResponse) => {
-  return response.reply || response.message || response.text || '';
+  ok: boolean;
+  reply: string;
+  chat_id: string;
+  provider: 'gemini' | 'mock';
+  created_at: string;
 };
 
 export const chatApi = {
-  async sendMessage(payload: ChatRequest) {
+  async sendMessage(payload: Omit<ChatRequest, 'client_ts'>) {
     const response = await apiClient<ChatResponse>('/api/mobile/chat', {
       method: 'POST',
-      body: payload
+      body: { ...payload, client_ts: Date.now() }
     });
-    return { response, reply: resolveReply(response) };
+    return { response, reply: response.reply };
   }
 };

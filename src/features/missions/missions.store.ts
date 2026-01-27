@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { missionsApi } from './missions.api';
 import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
@@ -7,12 +7,21 @@ import { logError } from '../../lib/logger';
 
 export type Mission = {
   id: string;
+  missionKey: string;
   title: string;
   description?: string;
-  scheduledAt?: string;
-  completed: boolean;
-  points?: number;
-  category?: string;
+  status: 'active' | 'completed';
+  progress: number;
+  goal: number;
+  updatedAt: string;
+};
+
+export type MissionRecord = {
+  mission_key: string;
+  status: 'active' | 'completed';
+  progress: number;
+  goal: number;
+  updated_at: string;
 };
 
 type ErrorState = 'none' | 'remote-failed' | 'no-data';
@@ -23,40 +32,43 @@ type MissionsState = {
   isStale: boolean;
   errorState: ErrorState;
   fetchMissions: (signal?: AbortSignal) => Promise<void>;
-  toggleComplete: (id: string) => Promise<void>;
+};
+
+const missionMeta: Record<string, { title: string; description?: string }> = {
+  DAILY_CHECKIN: {
+    title: 'Điểm danh Care Pulse',
+    description: 'Check-in sức khỏe mỗi ngày'
+  }
+};
+
+const mapMission = (mission: MissionRecord): Mission => {
+  const meta = missionMeta[mission.mission_key] || { title: mission.mission_key };
+  return {
+    id: mission.mission_key,
+    missionKey: mission.mission_key,
+    title: meta.title,
+    description: meta.description,
+    status: mission.status,
+    progress: mission.progress,
+    goal: mission.goal,
+    updatedAt: mission.updated_at
+  };
 };
 
 const fallbackMissions: Mission[] = [
   {
-    id: 'mission-1',
-    title: 'Nhắc đo đường huyết sáng nay',
-    description: 'Trước ăn sáng, ghi log glucose',
-    scheduledAt: new Date().toISOString(),
-    completed: false,
-    points: 10,
-    category: 'glucose'
-  },
-  {
-    id: 'mission-2',
-    title: 'Đi bộ 15 phút',
-    description: 'Cùng bố đi bộ nhé',
-    scheduledAt: new Date().toISOString(),
-    completed: false,
-    points: 8,
-    category: 'activity'
-  },
-  {
-    id: 'mission-3',
-    title: 'Uống thuốc huyết áp',
-    description: 'Nhắc uống đúng giờ',
-    scheduledAt: new Date().toISOString(),
-    completed: true,
-    points: 5,
-    category: 'medication'
+    id: 'DAILY_CHECKIN',
+    missionKey: 'DAILY_CHECKIN',
+    title: 'Điểm danh Care Pulse',
+    description: 'Check-in sức khỏe mỗi ngày',
+    status: 'active',
+    progress: 0,
+    goal: 1,
+    updatedAt: new Date().toISOString()
   }
 ];
 
-export const useMissionsStore = create<MissionsState>((set, get) => ({
+export const useMissionsStore = create<MissionsState>((set) => ({
   missions: [],
   status: 'idle',
   isStale: false,
@@ -75,28 +87,17 @@ export const useMissionsStore = create<MissionsState>((set, get) => ({
       set({ status: 'loading', errorState: 'none', isStale: false });
     }
     try {
-      const missions = await missionsApi.fetchMissions({ signal });
+      const missionRecords = await missionsApi.fetchMissions({ signal });
+      const missions = missionRecords.map(mapMission);
       set({ missions, status: 'success', isStale: false, errorState: 'none' });
       await localCache.setCached(CACHE_KEYS.MISSIONS, '1', missions);
     } catch (error) {
       if (usedCache) {
         set({ status: 'success', isStale: true, errorState: 'remote-failed' });
       } else {
-        set({ status: 'error', errorState: 'no-data', isStale: false, missions: fallbackMissions });
+        set({ status: 'error', errorState: 'no-data', isStale: false, missions: [] });
       }
       logError(error, { store: 'missions', action: 'fetchMissions', usedCache });
-    }
-  },
-  async toggleComplete(id) {
-    const previous = get().missions;
-    const updated = previous.map((mission) => (mission.id === id ? { ...mission, completed: !mission.completed } : mission));
-    set({ missions: updated });
-    try {
-      await missionsApi.completeMission(id);
-    } catch (error) {
-      console.warn('Mission complete failed, rolling back', error);
-      set({ missions: previous });
-      throw error;
     }
   }
 }));

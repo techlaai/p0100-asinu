@@ -98,17 +98,26 @@ export default function HomeScreen() {
 
         <H1SectionHeader title="Nhiệm vụ hôm nay" subtitle="Cố gắng hoàn thành top 3" />
         <View style={styles.cardList}>
-          {missions.map((mission) => (
+        {missions.map((mission) => {
+          const ratio = mission.goal > 0 ? mission.progress / mission.goal : 0;
+          return (
             <View key={mission.id} style={styles.missionCard}>
               <Text style={styles.missionTitle}>{mission.title}</Text>
-              <Text style={styles.missionDesc}>{mission.description}</Text>
+              {mission.description ? <Text style={styles.missionDesc}>{mission.description}</Text> : null}
+              <View style={styles.missionProgressRow}>
+                <View style={styles.missionProgressTrack}>
+                  <View style={[styles.missionProgressFill, { width: `${Math.min(ratio * 100, 100)}%` }]} />
+                </View>
+                <Text style={styles.missionProgressText}>{mission.progress}/{mission.goal}</Text>
+              </View>
               <Button
-                label={mission.completed ? 'Đã hoàn thành' : 'Hoàn thành'}
-                variant={mission.completed ? 'warning' : 'primary'}
+                label={mission.status === 'completed' ? 'Đã hoàn thành' : 'Xem chi tiết'}
+                variant={mission.status === 'completed' ? 'warning' : 'primary'}
                 onPress={() => router.push('/missions')}
               />
             </View>
-          ))}
+          );
+        })}
         </View>
 
         <H1SectionHeader title="Cây sức khỏe" subtitle="Tiến trình tuần này" />
@@ -184,6 +193,26 @@ const styles = StyleSheet.create({
   missionDesc: {
     color: colors.textSecondary,
     fontSize: typography.size.md
+  },
+  missionProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm
+  },
+  missionProgressTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 999,
+    overflow: 'hidden'
+  },
+  missionProgressFill: {
+    height: '100%',
+    backgroundColor: colors.primary
+  },
+  missionProgressText: {
+    fontWeight: '700',
+    color: colors.textPrimary
   },
   treeRow: {
     flexDirection: 'row',

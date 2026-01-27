@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { useMissionsStore } from './missions.store';
 
 export const useMissionActions = () => {
@@ -7,7 +7,6 @@ export const useMissionActions = () => {
   const isStale = useMissionsStore((state) => state.isStale);
   const errorState = useMissionsStore((state) => state.errorState);
   const fetchMissions = useMissionsStore((state) => state.fetchMissions);
-  const toggleComplete = useMissionsStore((state) => state.toggleComplete);
 
   useEffect(() => {
     if (status === 'idle') {
@@ -17,5 +16,5 @@ export const useMissionActions = () => {
     }
   }, [status, fetchMissions]);
 
-  return { missions, status, isStale, errorState, fetchMissions, toggleComplete };
+  return { missions, status, isStale, errorState, fetchMissions };
 };
