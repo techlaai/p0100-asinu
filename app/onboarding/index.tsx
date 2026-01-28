@@ -1,267 +1,306 @@
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+﻿import { useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
-import { colors, spacing, typography } from '../../src/styles';
+import { apiClient } from '../../src/lib/apiClient';
+import { useAuthStore } from '../../src/features/auth/auth.store';
+import { colors, radius, spacing, typography } from '../../src/styles';
 
-type OnboardingRole = 'self' | 'caregiver';
+type AnswerState = {
+  age: string;
+  gender: string;
+  goal: string;
+  body_shape: string;
+  checkup: string;
+  conditions: string[];
+  chronic: string[];
+  bone_joint: string;
+  bone_joint_other: string;
+  flexibility: string;
+  stairs: string;
+  exercise: string;
+  walking: string;
+  water: string;
+  sleep: string;
+};
 
-const diabetesOptions = ['Chưa chẩn đoán', 'Tiền đái tháo đường', 'Tuýp 1', 'Tuýp 2', 'Thai kỳ', 'Không rõ'];
-const durationOptions = ['Dưới 1 năm', '1-3 năm', '3-5 năm', 'Trên 5 năm', 'Mới phát hiện'];
-const treatmentOptions = ['Ăn uống + vận động', 'Thuốc uống', 'Insulin', 'TP bổ sung', 'Chưa dùng gì', 'Khác'];
-const comorbidityOptions = [
-  'Mỡ máu cao',
-  'Cao huyết áp',
-  'Men gan cao',
-  'Dạ dày/trào ngược',
-  'Mất ngủ',
-  'Gout',
-  'Tê tay chân',
-  'Mờ mắt',
-  'Hay mệt/choáng',
-  'Khác'
+type StepType = 'single' | 'multi' | 'single-other';
+
+type Step = {
+  key: keyof AnswerState;
+  title: string;
+  options: string[];
+  type: StepType;
+  noneOption?: string;
+  otherLabel?: string;
+};
+
+const steps: Step[] = [
+  { key: 'age', title: 'M1. Tuổi', options: ['30-39', '40-49', '50-59', '60+'], type: 'single' },
+  { key: 'gender', title: 'M2. Giới tính', options: ['Nam', 'Nữ'], type: 'single' },
+  {
+    key: 'goal',
+    title: 'M3. Mục tiêu',
+    options: ['Giảm cân', 'Sức khỏe & Tuổi thọ', 'Năng lượng & Sức sống', 'Thăng bằng & Khả năng vận động'],
+    type: 'single'
+  },
+  { key: 'body_shape', title: 'M4. Dáng người', options: ['Mảnh khảnh', 'Trung bình', 'Nặng'], type: 'single' },
+  {
+    key: 'checkup',
+    title: 'M5. Khám định kỳ',
+    options: ['Dưới 6 tháng', '6-12 tháng', 'Trên 1 năm', 'Hiếm khi'],
+    type: 'single'
+  },
+  {
+    key: 'conditions',
+    title: 'M6. Bệnh nền',
+    options: ['Tiểu đường', 'Cao huyết áp', 'Tim mạch', 'Gút', 'Không có'],
+    type: 'multi',
+    noneOption: 'Không có'
+  },
+  {
+    key: 'chronic',
+    title: 'M7. Mãn tính',
+    options: ['Đau đầu/Tiền đình', 'Trào ngược', 'Mất ngủ', 'Táo bón', 'Khác'],
+    type: 'multi'
+  },
+  {
+    key: 'bone_joint',
+    title: 'M8. Xương khớp',
+    options: ['Thoát vị đĩa đệm', 'Đau đầu gối', 'Đau lưng', 'Khác'],
+    type: 'single-other',
+    otherLabel: 'Nhập vấn đề xương khớp khác'
+  },
+  {
+    key: 'flexibility',
+    title: 'M9. Linh hoạt',
+    options: ['Rất linh hoạt', 'Khá linh hoạt', 'Không tốt lắm', 'Tôi không chắc'],
+    type: 'single'
+  },
+  {
+    key: 'stairs',
+    title: 'M10. Leo thang',
+    options: ['Không nói được/hết hơi', 'Hơi thở gấp/vẫn nói được', 'Bình thường sau 1 tầng', 'Xử lý nhiều tầng'],
+    type: 'single'
+  },
+  {
+    key: 'exercise',
+    title: 'M11. Tập luyện',
+    options: ['Không có gì', '1-2 lần/tuần', '3 lần/tuần', 'Hơn 3 lần/tuần'],
+    type: 'single'
+  },
+  {
+    key: 'walking',
+    title: 'M12. Đi dạo',
+    options: ['Mỗi ngày', '3-4 lần/tuần', '1-2 lần/tuần', 'Hàng tháng'],
+    type: 'single'
+  },
+  {
+    key: 'water',
+    title: 'M13. Uống nước',
+    options: ['Ít hơn 2 ly', '2-6 ly', '7-10 ly', 'Hơn 10 ly'],
+    type: 'single'
+  },
+  {
+    key: 'sleep',
+    title: 'M14. Ngủ',
+    options: ['Dưới 5 tiếng', '5-6 tiếng', '7-8 tiếng', 'Hơn 8 tiếng'],
+    type: 'single'
+  }
 ];
-const allergyOptions = ['Không dị ứng', 'Hải sản', 'Sữa', 'Đậu/hạt', 'Thuốc (ghi rõ)', 'Kiêng theo chế độ', 'Khác'];
-const concernOptions = ['Đường huyết cao', 'HbA1c cao', 'Cân nặng', 'Thuốc/insulin', 'Sức khỏe tổng', 'Không rõ'];
-const goalOptions = ['Ổn định đường huyết', 'Giảm HbA1c', 'Giảm cân', 'Giảm thuốc/insulin', 'Khỏe hơn', 'Tự tin hơn'];
-const relationOptions = ['Bố', 'Mẹ', 'Vợ', 'Chồng', 'Con', 'Anh/Chị/Em', 'Người thân khác'];
-const genderOptions = ['Nam', 'Nữ', 'Khác'];
-
-const stepsSelf = ['anthro', 'diabetes', 'treatment', 'comorbidity', 'concern', 'tone'] as const;
-const stepsCaregiver = ['relation', 'anthro', 'diabetes', 'treatment', 'comorbidity', 'concern', 'tone'] as const;
 
 export default function OnboardingScreen() {
-  const [role, setRole] = useState<OnboardingRole | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
-  const [state, setState] = useState({
-    height_cm: '',
-    weight_kg: '',
+  const [submitting, setSubmitting] = useState(false);
+  const [answers, setAnswers] = useState<AnswerState>({
     age: '',
-    relation: '',
-    patient_gender: '',
-    diabetes_status: '',
-    disease_duration: '',
-    treatment_methods: [] as string[],
-    comorbidities: [] as string[],
-    comorbidities_extra: '',
-    allergies: [] as string[],
-    allergies_extra: '',
-    main_concern: '',
-    goal_3m: '',
-    user_call_term: '',
-    bot_self_term: ''
+    gender: '',
+    goal: '',
+    body_shape: '',
+    checkup: '',
+    conditions: [],
+    chronic: [],
+    bone_joint: '',
+    bone_joint_other: '',
+    flexibility: '',
+    stairs: '',
+    exercise: '',
+    walking: '',
+    water: '',
+    sleep: ''
   });
+
+  const profile = useAuthStore((state) => state.profile);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const steps = useMemo(() => {
-    if (role === 'caregiver') return stepsCaregiver;
-    return stepsSelf;
-  }, [role]);
-
+  const totalSteps = steps.length;
   const currentStep = steps[stepIndex];
 
-  const toggleArray = (key: 'treatment_methods' | 'comorbidities' | 'allergies', value: string) => {
-    setState((prev) => {
-      const exists = prev[key].includes(value);
-      const next = exists ? prev[key].filter((v) => v !== value) : [...prev[key], value];
+  const progress = useMemo(() => (stepIndex + 1) / totalSteps, [stepIndex, totalSteps]);
+
+  const isStepValid = useMemo(() => {
+    const value = answers[currentStep.key];
+    if (currentStep.type === 'multi') {
+      return Array.isArray(value) && value.length > 0;
+    }
+    if (typeof value !== 'string' || value.trim().length === 0) return false;
+    if (currentStep.type === 'single-other' && value === 'Khác') {
+      return answers.bone_joint_other.trim().length > 0;
+    }
+    return true;
+  }, [answers, currentStep]);
+
+  const toggleMulti = (key: keyof AnswerState, value: string, noneOption?: string) => {
+    setAnswers((prev) => {
+      const current = (prev[key] as string[]) || [];
+      let next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
+      if (noneOption) {
+        if (value === noneOption) {
+          next = [noneOption];
+        } else {
+          next = next.filter((item) => item !== noneOption);
+        }
+      }
       return { ...prev, [key]: next };
     });
   };
 
-  const handleNext = () => {
-    if (role === null) {
-      setRole('self');
-      return;
-    }
-    if (stepIndex < steps.length - 1) {
-      setStepIndex((i) => i + 1);
-      return;
-    }
-    router.replace('/(tabs)/home');
+  const selectSingle = (key: keyof AnswerState, value: string) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [key]: value,
+      ...(key === 'bone_joint' && value !== 'Khác' ? { bone_joint_other: '' } : {})
+    }));
   };
 
   const handleBack = () => {
-    if (stepIndex === 0) {
-      setRole(null);
-      return;
-    }
-    setStepIndex((i) => Math.max(0, i - 1));
+    if (stepIndex === 0) return;
+    setStepIndex((idx) => Math.max(0, idx - 1));
   };
 
-  const renderRolePicker = () => (
-    <View style={styles.card}>
-      <Text style={styles.question}>Bạn đang chăm sóc cho ai?</Text>
-      <View style={styles.chipRow}>
-        <Chip label="Tôi tự chăm sóc" active={role === 'self'} onPress={() => { setRole('self'); setStepIndex(0); }} />
-        <Chip label="Tôi chăm sóc người thân" active={role === 'caregiver'} onPress={() => { setRole('caregiver'); setStepIndex(0); }} />
-      </View>
-    </View>
-  );
-
-  const renderAnthro = () => (
-    <View style={styles.card}>
-      <Text style={styles.question}>Chỉ số cơ bản</Text>
-      <View style={styles.fieldRow}>
-        <TextInput label="Chiều cao (cm)" value={state.height_cm} onChangeText={(v) => setState({ ...state, height_cm: v })} keyboardType="numeric" />
-        <TextInput label="Cân nặng (kg)" value={state.weight_kg} onChangeText={(v) => setState({ ...state, weight_kg: v })} keyboardType="numeric" />
-        <TextInput label="Tuổi" value={state.age} onChangeText={(v) => setState({ ...state, age: v })} keyboardType="numeric" />
-      </View>
-      {role === 'caregiver' ? (
-        <TextInput label="Giới tính người bệnh" value={state.patient_gender} onChangeText={(v) => setState({ ...state, patient_gender: v })} placeholder="Nam/Nữ/Khác" />
-      ) : null}
-    </View>
-  );
-
-  const renderRelation = () => (
-    <View style={styles.card}>
-      <Text style={styles.question}>Quan hệ với người bệnh</Text>
-      <View style={styles.chipRow}>
-        {relationOptions.map((opt) => (
-          <Chip key={opt} label={opt} active={state.relation === opt} onPress={() => setState({ ...state, relation: opt })} />
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderDiabetes = () => (
-    <View style={styles.card}>
-      <Text style={styles.question}>Tình trạng tiểu đường</Text>
-      <View style={styles.chipRow}>
-        {diabetesOptions.map((opt) => (
-          <Chip key={opt} label={opt} active={state.diabetes_status === opt} onPress={() => setState({ ...state, diabetes_status: opt })} />
-        ))}
-      </View>
-      <Text style={[styles.question, { marginTop: spacing.md }]}>Thời gian mắc</Text>
-      <View style={styles.chipRow}>
-        {durationOptions.map((opt) => (
-          <Chip key={opt} label={opt} active={state.disease_duration === opt} onPress={() => setState({ ...state, disease_duration: opt })} />
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderTreatment = () => (
-    <View style={styles.card}>
-      <Text style={styles.question}>Đang điều trị bằng</Text>
-      <View style={styles.chipRow}>
-        {treatmentOptions.map((opt) => (
-          <Chip key={opt} label={opt} active={state.treatment_methods.includes(opt)} onPress={() => toggleArray('treatment_methods', opt)} />
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderComorbidity = () => (
-    <View style={styles.card}>
-      <Text style={styles.question}>Bệnh kèm / triệu chứng</Text>
-      <View style={styles.chipRow}>
-        {comorbidityOptions.map((opt) => (
-          <Chip key={opt} label={opt} active={state.comorbidities.includes(opt)} onPress={() => toggleArray('comorbidities', opt)} />
-        ))}
-      </View>
-      <TextInput
-        label="Ghi thêm (tuỳ chọn)"
-        value={state.comorbidities_extra}
-        onChangeText={(v) => setState({ ...state, comorbidities_extra: v })}
-        placeholder="Nhập thêm nếu cần"
-      />
-      <Text style={[styles.question, { marginTop: spacing.md }]}>Dị ứng / kiêng</Text>
-      <View style={styles.chipRow}>
-        {allergyOptions.map((opt) => (
-          <Chip key={opt} label={opt} active={state.allergies.includes(opt)} onPress={() => toggleArray('allergies', opt)} />
-        ))}
-      </View>
-      <TextInput
-        label="Ghi thêm (tuỳ chọn)"
-        value={state.allergies_extra}
-        onChangeText={(v) => setState({ ...state, allergies_extra: v })}
-        placeholder="Nhập thêm nếu cần"
-      />
-    </View>
-  );
-
-  const renderConcernGoal = () => (
-    <View style={styles.card}>
-      <Text style={styles.question}>Nỗi lo lớn nhất</Text>
-      <View style={styles.chipRow}>
-        {concernOptions.map((opt) => (
-          <Chip key={opt} label={opt} active={state.main_concern === opt} onPress={() => setState({ ...state, main_concern: opt })} />
-        ))}
-      </View>
-      <Text style={[styles.question, { marginTop: spacing.md }]}>Mục tiêu 1-3 tháng</Text>
-      <View style={styles.chipRow}>
-        {goalOptions.map((opt) => (
-          <Chip key={opt} label={opt} active={state.goal_3m === opt} onPress={() => setState({ ...state, goal_3m: opt })} />
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderTone = () => (
-    <View style={styles.card}>
-      <Text style={styles.question}>Cách xưng hô</Text>
-      <TextInput
-        label="Asinu gọi bạn là"
-        value={state.user_call_term}
-        onChangeText={(v) => setState({ ...state, user_call_term: v })}
-        placeholder="Anh/Chị/Em/..."
-      />
-      <TextInput
-        label="Asinu tự xưng là"
-        value={state.bot_self_term}
-        onChangeText={(v) => setState({ ...state, bot_self_term: v })}
-        placeholder="Asinu/em/tôi/..."
-      />
-    </View>
-  );
-
-  const renderStep = () => {
-    if (role === null) return renderRolePicker();
-    switch (currentStep) {
-      case 'relation':
-        return renderRelation();
-      case 'anthro':
-        return renderAnthro();
-      case 'diabetes':
-        return renderDiabetes();
-      case 'treatment':
-        return renderTreatment();
-      case 'comorbidity':
-        return renderComorbidity();
-      case 'concern':
-        return renderConcernGoal();
-      case 'tone':
-        return renderTone();
-      default:
-        return null;
+  const handleSubmit = async () => {
+    const userId = profile?.id;
+    if (!userId) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng đăng nhập lại.');
+      router.replace('/login');
+      return;
     }
+
+    const boneJointValue =
+      answers.bone_joint === 'Khác'
+        ? `Khác: ${answers.bone_joint_other.trim()}`
+        : answers.bone_joint;
+
+    const payload = {
+      user_id: userId,
+      profile: {
+        age: answers.age,
+        gender: answers.gender,
+        goal: answers.goal,
+        body_shape: answers.body_shape,
+        checkup: answers.checkup,
+        conditions: answers.conditions,
+        chronic: answers.chronic,
+        bone_joint: boneJointValue,
+        flexibility: answers.flexibility,
+        stairs: answers.stairs,
+        exercise: answers.exercise,
+        walking: answers.walking,
+        water: answers.water,
+        sleep: answers.sleep
+      }
+    };
+
+    setSubmitting(true);
+    try {
+      await apiClient('/api/mobile/onboarding', { method: 'POST', body: payload });
+      router.replace('/(tabs)/home');
+    } catch (error) {
+      Alert.alert('Không thể gửi dữ liệu', 'Vui lòng thử lại.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleNext = async () => {
+    if (!isStepValid) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng chọn câu trả lời trước khi tiếp tục.');
+      return;
+    }
+
+    if (stepIndex < totalSteps - 1) {
+      setStepIndex((idx) => idx + 1);
+      return;
+    }
+
+    await handleSubmit();
   };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.header}>Onboarding</Text>
-        <Text style={styles.subtitle}>Vài bước nhanh để Asinu chăm sóc sát hơn</Text>
-        {renderStep()}
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.progressWrap}>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+          </View>
+          <Text style={styles.progressText}>Bước {stepIndex + 1}/{totalSteps}</Text>
+        </View>
+
+        <Text style={styles.header}>Khảo sát nhanh</Text>
+        <Text style={styles.subtitle}>14 bước ngắn để cá nhân hóa hành trình</Text>
+
+        <View style={styles.card}>
+          <Text style={styles.question}>{currentStep.title}</Text>
+          <View style={styles.options}>
+            {currentStep.options.map((option) => {
+              const value = answers[currentStep.key];
+              const active = Array.isArray(value) ? value.includes(option) : value === option;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() =>
+                    currentStep.type === 'multi'
+                      ? toggleMulti(currentStep.key, option, currentStep.noneOption)
+                      : selectSingle(currentStep.key, option)
+                  }
+                  android_ripple={{ color: colors.primary + '22' }}
+                  style={({ pressed }) => [
+                    styles.optionCard,
+                    active && styles.optionCardActive,
+                    pressed && styles.optionCardPressed
+                  ]}
+                >
+                  <Text style={[styles.optionText, active && styles.optionTextActive]}>{option}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {currentStep.type === 'single-other' && answers.bone_joint === 'Khác' ? (
+            <TextInput
+              label={currentStep.otherLabel}
+              value={answers.bone_joint_other}
+              onChangeText={(value) => setAnswers((prev) => ({ ...prev, bone_joint_other: value }))}
+              placeholder="Nhập chi tiết"
+            />
+          ) : null}
+        </View>
       </ScrollView>
-      <View style={styles.footer}>
-        <Button label="Bỏ qua" variant="ghost" onPress={() => router.replace('/(tabs)/home')} />
-        <Button label="Tiếp tục" onPress={handleNext} />
-        <Button label="Quay lại" variant="ghost" onPress={handleBack} />
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        <Button label="Quay lại" variant="ghost" onPress={handleBack} disabled={stepIndex === 0 || submitting} />
+        <Button
+          label={stepIndex === totalSteps - 1 ? 'Hoàn tất' : 'Tiếp tục'}
+          onPress={handleNext}
+          disabled={submitting}
+        />
       </View>
     </View>
   );
 }
-
-type ChipProps = { label: string; active?: boolean; onPress: () => void };
-const Chip = ({ label, active, onPress }: ChipProps) => (
-  <Pressable style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
-    <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-  </Pressable>
-);
 
 const styles = StyleSheet.create({
   container: {
@@ -271,7 +310,26 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl,
-    gap: spacing.md
+    gap: spacing.lg
+  },
+  progressWrap: {
+    gap: spacing.sm
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary
+  },
+  progressText: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary
   },
   header: {
     fontSize: typography.size.xl,
@@ -279,13 +337,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary
   },
   subtitle: {
-    color: colors.textSecondary,
-    marginBottom: spacing.sm
+    color: colors.textSecondary
   },
   card: {
     backgroundColor: colors.surface,
     padding: spacing.lg,
-    borderRadius: 16,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.md
@@ -295,36 +352,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary
   },
-  fieldRow: {
-    gap: spacing.md
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  options: {
     gap: spacing.sm
   },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
+  optionCard: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface
   },
-  chipActive: {
-    backgroundColor: colors.primary + '22',
-    borderColor: colors.primary
+  optionCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '14'
   },
-  chipText: {
-    color: colors.textPrimary
+  optionCardPressed: {
+    opacity: 0.9
   },
-  chipTextActive: {
-    color: colors.primary,
-    fontWeight: '700'
+  optionText: {
+    color: colors.textPrimary,
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    fontFamily: 'System'
+  },
+  optionTextActive: {
+    color: colors.primary
   },
   footer: {
     flexDirection: 'row',
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     gap: spacing.md,
     justifyContent: 'space-between',
     borderTopWidth: 1,
