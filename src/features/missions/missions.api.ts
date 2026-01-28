@@ -1,14 +1,20 @@
-import { apiClient } from '../../lib/apiClient';
-import { Mission } from './missions.store';
+﻿import { apiClient } from '../../lib/apiClient';
+import { MissionRecord } from './missions.store';
+
+type MissionsResponse = {
+  ok: boolean;
+  missions: MissionRecord[];
+};
 
 export const missionsApi = {
-  fetchMissions(options?: { signal?: AbortSignal }) {
-    return apiClient<Mission[]>('/api/mobile/missions', {
+  async fetchMissions(options?: { signal?: AbortSignal }) {
+    const response = await apiClient<MissionsResponse>('/api/mobile/missions', {
       retry: { attempts: 2, initialDelayMs: 500 },
       signal: options?.signal
     });
-  },
-  completeMission(id: string) {
-    return apiClient<Mission>(`/api/mobile/missions/${id}/complete`, { method: 'POST' });
+    if (!response.ok) {
+      throw new Error('Failed to fetch missions');
+    }
+    return response.missions || [];
   }
 };

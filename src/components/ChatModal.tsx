@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
 import { chatApi } from '../features/chat/chat.api';
 import { colors, spacing, typography } from '../styles';
+import { navigation } from '../lib/navigation';
 
 type ChatModalProps = {
   visible: boolean;
@@ -21,6 +22,12 @@ const initialMessages: ChatBubble[] = [
     timestamp: new Date().toISOString()
   }
 ];
+
+const isUnauthorized = (error: unknown) => {
+  if (!error) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('401') || message.toLowerCase().includes('missing token');
+};
 
 export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const insets = useSafeAreaInsets();
@@ -47,10 +54,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     setMessages((prev) => [...prev, userMessage]);
     setIsTyping(true);
     try {
-      const history = [...messages, userMessage]
-        .slice(-6)
-        .map(({ role, text: entryText }) => ({ role, text: entryText }));
-      const { reply } = await chatApi.sendMessage({ message: text, history });
+      const { reply } = await chatApi.sendMessage({ message: text, context: { lang: 'vi' } });
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
@@ -59,6 +63,11 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      if (isUnauthorized(error)) {
+        navigation.goToLogin();
+        setIsTyping(false);
+        return;
+      }
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',

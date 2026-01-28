@@ -1,21 +1,37 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { submitPulse } from '../api/carePulse.api';
-import { computeNext } from '../engine/carePulse.machine';
-import { EngineEvent, EngineState, PulseStatus, TriggerSource, initialEngineState } from '../types';
+import { fetchCarePulseState, sendCarePulseEvent } from '../api/carePulse.api';
+import { EngineState, PulseStatus, TriggerSource, initialEngineState } from '../types';
 
 type CarePulseStore = {
   engineState: EngineState;
   hydrated: boolean;
+  popupSessionId: string | null;
   setEngineState: (engineState: EngineState) => void;
   setHydrated: (value: boolean) => void;
+  syncState: () => Promise<void>;
+  sendAppOpened: () => Promise<void>;
+  recordPopupShown: () => Promise<void>;
+  recordPopupDismiss: () => Promise<void>;
   checkIn: (status: PulseStatus, subStatus: string | undefined, triggerSource: TriggerSource) => Promise<void>;
-  recordPopupDismiss: () => void;
 };
 
-const applyEvent = (state: EngineState, event: EngineEvent) => {
-  return computeNext(state, event, new Date());
+const createSessionId = () => {
+  const cryptoObj = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (cryptoObj?.randomUUID) {
+    return cryptoObj.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+const resolveSource = (triggerSource: TriggerSource) => {
+  if (triggerSource === 'POPUP') return 'scheduler';
+  return 'manual';
 };
 
 export const useCarePulseStore = create<CarePulseStore>()(
@@ -23,28 +39,61 @@ export const useCarePulseStore = create<CarePulseStore>()(
     (set, get) => ({
       engineState: initialEngineState,
       hydrated: false,
+      popupSessionId: null,
       setEngineState: (engineState) => set({ engineState }),
       setHydrated: (value) => set({ hydrated: value }),
-      checkIn: async (status, subStatus, triggerSource) => {
-        const previous = get().engineState;
-        const nextState = applyEvent(previous, { type: 'CHECK_IN', status, subStatus, triggerSource });
-        set({ engineState: nextState });
-        try {
-          await submitPulse({
-            status,
-            subStatus,
-            triggerSource,
-            escalationSent: false,
-            silenceCount: previous.silenceCount
-          });
-          console.log('[care-pulse] submitPulse success', status);
-        } catch (error) {
-          console.error('[care-pulse] submitPulse failed', error);
+      syncState: async () => {
+        const response = await fetchCarePulseState();
+        if (response?.state) {
+          set({ engineState: response.state });
         }
       },
-      recordPopupDismiss: () => {
-        const nextState = applyEvent(get().engineState, { type: 'POPUP_DISMISSED' });
-        set({ engineState: nextState });
+      sendAppOpened: async () => {
+        const response = await sendCarePulseEvent({
+          eventType: 'APP_OPENED',
+          source: 'system',
+          uiSessionId: createSessionId()
+        });
+        if (response?.state) {
+          set({ engineState: response.state });
+        }
+      },
+      recordPopupShown: async () => {
+        const sessionId = createSessionId();
+        set({ popupSessionId: sessionId });
+        const response = await sendCarePulseEvent({
+          eventType: 'POPUP_SHOWN',
+          source: 'scheduler',
+          uiSessionId: sessionId
+        });
+        if (response?.state) {
+          set({ engineState: response.state });
+        }
+      },
+      recordPopupDismiss: async () => {
+        const sessionId = get().popupSessionId || createSessionId();
+        const response = await sendCarePulseEvent({
+          eventType: 'POPUP_DISMISSED',
+          source: 'scheduler',
+          uiSessionId: sessionId
+        });
+        set({ popupSessionId: null });
+        if (response?.state) {
+          set({ engineState: response.state });
+        }
+      },
+      checkIn: async (status, _subStatus, triggerSource) => {
+        const sessionId = triggerSource === 'POPUP' ? get().popupSessionId || createSessionId() : createSessionId();
+        const response = await sendCarePulseEvent({
+          eventType: 'CHECK_IN',
+          source: resolveSource(triggerSource),
+          uiSessionId: sessionId,
+          selfReport: status
+        });
+        set({ popupSessionId: null });
+        if (response?.state) {
+          set({ engineState: response.state });
+        }
       }
     }),
     {

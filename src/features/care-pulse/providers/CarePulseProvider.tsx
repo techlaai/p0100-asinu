@@ -1,8 +1,6 @@
-import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+﻿import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { PulsePopup } from '../components/PulsePopup';
-import { computeNext } from '../engine/carePulse.machine';
-import { shouldShowPopup } from '../engine/carePulse.scheduler';
 import { useCarePulseStore } from '../store/carePulse.store';
 import { EngineState } from '../types';
 
@@ -18,21 +16,23 @@ type Props = {
   children: ReactNode;
 };
 
-const isSameState = (a: EngineState, b: EngineState) =>
-  a.currentStatus === b.currentStatus &&
-  a.lastCheckInAt === b.lastCheckInAt &&
-  a.cooldownUntil === b.cooldownUntil &&
-  a.nextAskAt === b.nextAskAt &&
-  a.silenceCount === b.silenceCount &&
-  a.emergencyArmed === b.emergencyArmed &&
-  a.emergencyLastAskAt === b.emergencyLastAskAt &&
-  a.lastTriggerSource === b.lastTriggerSource &&
-  a.escalationNeeded === b.escalationNeeded;
+const shouldOpenPopupFromState = (state: EngineState, now: Date) => {
+  if (!state.nextAskAt) return false;
+  const nextAsk = new Date(state.nextAskAt);
+  if (now < nextAsk) return false;
+  if (state.cooldownUntil) {
+    const cooldown = new Date(state.cooldownUntil);
+    if (now < cooldown) return false;
+  }
+  return true;
+};
 
 export const CarePulseProvider = ({ children }: Props) => {
   const engineState = useCarePulseStore((state) => state.engineState);
   const hydrated = useCarePulseStore((state) => state.hydrated);
-  const setEngineState = useCarePulseStore((state) => state.setEngineState);
+  const recordPopupShown = useCarePulseStore((state) => state.recordPopupShown);
+  const sendAppOpened = useCarePulseStore((state) => state.sendAppOpened);
+  const syncState = useCarePulseStore((state) => state.syncState);
   const [popupVisible, setPopupVisible] = useState(false);
   const engineStateRef = useRef(engineState);
   const popupVisibleRef = useRef(popupVisible);
@@ -46,30 +46,31 @@ export const CarePulseProvider = ({ children }: Props) => {
   }, [popupVisible]);
 
   const openPulsePopup = useCallback(() => {
-    const now = new Date();
-    const nextState = computeNext(engineStateRef.current, { type: 'POPUP_SHOWN' }, now);
-    if (!isSameState(engineStateRef.current, nextState)) {
-      engineStateRef.current = nextState;
-      setEngineState(nextState);
-    }
+    if (popupVisibleRef.current) return;
+    recordPopupShown();
     setPopupVisible(true);
-  }, [setEngineState]);
+  }, [recordPopupShown]);
 
-  const runScheduler = useCallback(() => {
+  const runScheduler = useCallback(async () => {
     if (!hydrated) return;
-    const now = new Date();
-    const nextState = computeNext(engineStateRef.current, { type: 'APP_OPENED' }, now);
-    if (!isSameState(engineStateRef.current, nextState)) {
-      engineStateRef.current = nextState;
-      setEngineState(nextState);
+    try {
+      await sendAppOpened();
+    } catch {
+      // ignore
+    }
+    try {
+      await syncState();
+    } catch {
+      // ignore
     }
 
-    const shouldShow = shouldShowPopup(nextState, now, { isAppForeground: true, routeName: '' });
+    const now = new Date();
+    const latestState = engineStateRef.current;
+    const shouldShow = shouldOpenPopupFromState(latestState, now);
     if (shouldShow && !popupVisibleRef.current) {
-      console.log('[care-pulse] shouldShowPopup true');
       openPulsePopup();
     }
-  }, [hydrated, openPulsePopup, setEngineState]);
+  }, [hydrated, openPulsePopup, sendAppOpened, syncState]);
 
   useEffect(() => {
     runScheduler();

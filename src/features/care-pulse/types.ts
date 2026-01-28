@@ -1,4 +1,4 @@
-export type PulseStatus = 'NORMAL' | 'TIRED' | 'EMERGENCY';
+﻿export type PulseStatus = 'NORMAL' | 'TIRED' | 'EMERGENCY';
 
 export type TriggerSource = 'POPUP' | 'HOME_WIDGET' | 'EMERGENCY_BUTTON';
 
@@ -10,8 +10,13 @@ export type EngineState = {
   silenceCount: number;
   emergencyArmed: boolean;
   emergencyLastAskAt: string | null;
-  lastTriggerSource: TriggerSource | null;
-  escalationNeeded: boolean;
+  lastAppOpenedAt: string | null;
+  episodeId: string | null;
+  aps: number;
+  tier: number;
+  reasons: string[];
+  lastTriggerSource?: TriggerSource | null;
+  escalationNeeded?: boolean;
 };
 
 export type EngineEvent =
@@ -30,6 +35,11 @@ export const initialEngineState: EngineState = {
   silenceCount: 0,
   emergencyArmed: false,
   emergencyLastAskAt: null,
+  lastAppOpenedAt: null,
+  episodeId: null,
+  aps: 0,
+  tier: 0,
+  reasons: [],
   lastTriggerSource: null,
   escalationNeeded: false
 };
