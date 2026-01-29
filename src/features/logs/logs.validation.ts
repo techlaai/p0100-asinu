@@ -1,4 +1,4 @@
-import { GlucoseLogPayload, BloodPressureLogPayload, MedicationLogPayload, WeightLogPayload, WaterLogPayload, MealLogPayload, InsulinLogPayload } from './logs.api';
+import { BloodPressureLogPayload, GlucoseLogPayload, InsulinLogPayload, MealLogPayload, MedicationLogPayload, WaterLogPayload, WeightLogPayload } from './logs.api';
 import { isHalfStepNumber } from './logs.service';
 
 type ValidationResult<T> = { ok: true; value: T } | { ok: false; errors: Record<string, string> };

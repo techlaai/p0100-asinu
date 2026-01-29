@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useCallback } from 'react';
-import { useLogsStore } from '../logs/logs.store';
+import { useCallback, useEffect, useMemo } from 'react';
+import { LogEntry, useLogsStore } from '../logs/logs.store';
 import { useMissionsStore } from '../missions/missions.store';
 import { useTreeStore } from '../tree/tree.store';
+
+// Helper to get value from log entry
+const getLogValue = (log: LogEntry, field: 'value' | 'systolic' | 'diastolic' | 'volume_ml') => {
+  return log[field];
+};
 
 export const useHomeViewModel = () => {
   const logs = useLogsStore((state) => state.recent);
@@ -31,12 +36,19 @@ export const useHomeViewModel = () => {
   }, [fetchLogs, fetchMissions, fetchTree]);
 
   const quickMetrics = useMemo(() => {
+    // Find latest glucose
     const latestGlucose = logs.find((log) => log.type === 'glucose');
+    // Find latest blood pressure
     const latestBloodPressure = logs.find((log) => log.type === 'blood-pressure');
+    
+    const glucoseValue = latestGlucose ? getLogValue(latestGlucose, 'value') : null;
+    const systolicValue = latestBloodPressure ? getLogValue(latestBloodPressure, 'systolic') : null;
+    const diastolicValue = latestBloodPressure ? getLogValue(latestBloodPressure, 'diastolic') : null;
+    
     return {
-      glucose: latestGlucose?.value ?? 118,
-      bloodPressure: latestBloodPressure
-        ? `${latestBloodPressure.systolic}/${latestBloodPressure.diastolic}`
+      glucose: glucoseValue ?? 118,
+      bloodPressure: systolicValue && diastolicValue
+        ? `${systolicValue}/${diastolicValue}`
         : '124/78'
     };
   }, [logs]);

@@ -1,5 +1,6 @@
 ﻿import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { useSession } from '../../../providers/SessionProvider';
 import { PulsePopup } from '../components/PulsePopup';
 import { useCarePulseStore } from '../store/carePulse.store';
 import { EngineState } from '../types';
@@ -36,6 +37,9 @@ export const CarePulseProvider = ({ children }: Props) => {
   const [popupVisible, setPopupVisible] = useState(false);
   const engineStateRef = useRef(engineState);
   const popupVisibleRef = useRef(popupVisible);
+  
+  // Wait for session to be ready before making API calls
+  const { ready: sessionReady } = useSession();
 
   useEffect(() => {
     engineStateRef.current = engineState;
@@ -52,7 +56,7 @@ export const CarePulseProvider = ({ children }: Props) => {
   }, [recordPopupShown]);
 
   const runScheduler = useCallback(async () => {
-    if (!hydrated) return;
+    if (!hydrated || !sessionReady) return;
     try {
       await sendAppOpened();
     } catch {
@@ -70,7 +74,7 @@ export const CarePulseProvider = ({ children }: Props) => {
     if (shouldShow && !popupVisibleRef.current) {
       openPulsePopup();
     }
-  }, [hydrated, openPulsePopup, sendAppOpened, syncState]);
+  }, [hydrated, sessionReady, openPulsePopup, sendAppOpened, syncState]);
 
   useEffect(() => {
     runScheduler();

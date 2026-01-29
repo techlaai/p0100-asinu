@@ -1,18 +1,18 @@
 import { create } from 'zustand';
-import {
-  logsApi,
-  GlucoseLogPayload,
-  BloodPressureLogPayload,
-  MedicationLogPayload,
-  WeightLogPayload,
-  WaterLogPayload,
-  MealLogPayload,
-  InsulinLogPayload
-} from './logs.api';
+import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
-import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { logError } from '../../lib/logger';
+import {
+  BloodPressureLogPayload,
+  GlucoseLogPayload,
+  InsulinLogPayload,
+  logsApi,
+  MealLogPayload,
+  MedicationLogPayload,
+  WaterLogPayload,
+  WeightLogPayload
+} from './logs.api';
 
 export type LogEntry = {
   id: string;
@@ -28,9 +28,13 @@ export type LogEntry = {
   title?: string;
   macros?: string;
   kcal?: number;
+  carbs_g?: number;
+  protein_g?: number;
+  fat_g?: number;
   photo_key?: string;
   insulin_type?: string;
   dose_units?: number;
+  timing?: string;
   meal_id?: string;
   tags?: string[];
   notes?: string;
@@ -123,9 +127,9 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     };
     set({ recent: [optimistic, ...get().recent] });
     try {
-      const saved = await logsApi.createGlucose(payload);
-      set({ recent: [saved, ...get().recent] });
-      return saved;
+      await logsApi.createGlucose(payload);
+      await get().fetchRecent();
+      return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
       logError(error, { store: 'logs', action: 'createGlucose' });
@@ -144,9 +148,9 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     };
     set({ recent: [optimistic, ...get().recent] });
     try {
-      const saved = await logsApi.createBloodPressure(payload);
-      set({ recent: [saved, ...get().recent] });
-      return saved;
+      await logsApi.createBloodPressure(payload);
+      await get().fetchRecent();
+      return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
       logError(error, { store: 'logs', action: 'createBloodPressure' });
@@ -165,9 +169,9 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     };
     set({ recent: [optimistic, ...get().recent] });
     try {
-      const saved = await logsApi.createMedication(payload);
-      set({ recent: [saved, ...get().recent] });
-      return saved;
+      await logsApi.createMedication(payload);
+      await get().fetchRecent();
+      return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
       logError(error, { store: 'logs', action: 'createMedication' });
@@ -185,9 +189,9 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     };
     set({ recent: [optimistic, ...get().recent] });
     try {
-      const saved = await logsApi.createWeight(payload);
-      set({ recent: [saved, ...get().recent] });
-      return saved;
+      await logsApi.createWeight(payload);
+      await get().fetchRecent();
+      return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
       logError(error, { store: 'logs', action: 'createWeight' });
@@ -199,13 +203,14 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       id: `water-${Date.now()}`,
       type: 'water',
       recordedAt: payload.recordedAt || new Date().toISOString(),
-      volume_ml: payload.volume_ml
+      volume_ml: payload.volume_ml,
+      notes: payload.notes
     };
     set({ recent: [optimistic, ...get().recent] });
     try {
-      const saved = await logsApi.createWater(payload);
-      set({ recent: [saved, ...get().recent] });
-      return saved;
+      await logsApi.createWater(payload);
+      await get().fetchRecent();
+      return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
       logError(error, { store: 'logs', action: 'createWater' });
@@ -218,17 +223,17 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       type: 'meal',
       recordedAt: payload.recordedAt || new Date().toISOString(),
       title: payload.title,
-      macros: payload.macros,
       kcal: payload.kcal,
-      photo_key: payload.photo_key,
-      meal_id: payload.meal_id,
+      carbs_g: payload.carbs_g,
+      protein_g: payload.protein_g,
+      fat_g: payload.fat_g,
       notes: payload.notes
     };
     set({ recent: [optimistic, ...get().recent] });
     try {
-      const saved = await logsApi.createMeal(payload);
-      set({ recent: [saved, ...get().recent] });
-      return saved;
+      await logsApi.createMeal(payload);
+      await get().fetchRecent();
+      return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
       logError(error, { store: 'logs', action: 'createMeal' });
@@ -242,14 +247,14 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       recordedAt: payload.recordedAt || new Date().toISOString(),
       insulin_type: payload.insulin_type,
       dose_units: payload.dose_units,
-      meal_id: payload.meal_id,
+      timing: payload.timing,
       notes: payload.notes
     };
     set({ recent: [optimistic, ...get().recent] });
     try {
-      const saved = await logsApi.createInsulin(payload);
-      set({ recent: [saved, ...get().recent] });
-      return saved;
+      await logsApi.createInsulin(payload);
+      await get().fetchRecent();
+      return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
       logError(error, { store: 'logs', action: 'createInsulin' });

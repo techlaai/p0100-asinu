@@ -1,6 +1,7 @@
 ﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { tokenStore } from '../../../lib/tokenStore';
 import { fetchCarePulseState, sendCarePulseEvent } from '../api/carePulse.api';
 import { EngineState, PulseStatus, TriggerSource, initialEngineState } from '../types';
 
@@ -43,19 +44,39 @@ export const useCarePulseStore = create<CarePulseStore>()(
       setEngineState: (engineState) => set({ engineState }),
       setHydrated: (value) => set({ hydrated: value }),
       syncState: async () => {
-        const response = await fetchCarePulseState();
-        if (response?.state) {
-          set({ engineState: response.state });
+        const token = tokenStore.getToken();
+        if (!token) {
+          console.warn('CarePulse: No auth token available, skipping state sync');
+          return;
+        }
+        
+        try {
+          const response = await fetchCarePulseState();
+          if (response?.state) {
+            set({ engineState: response.state });
+          }
+        } catch (error) {
+          console.warn('CarePulse: Failed to sync state:', error);
         }
       },
       sendAppOpened: async () => {
-        const response = await sendCarePulseEvent({
-          eventType: 'APP_OPENED',
-          source: 'system',
-          uiSessionId: createSessionId()
-        });
-        if (response?.state) {
-          set({ engineState: response.state });
+        const token = tokenStore.getToken();
+        if (!token) {
+          console.warn('CarePulse: No auth token available, skipping app opened event');
+          return;
+        }
+        
+        try {
+          const response = await sendCarePulseEvent({
+            eventType: 'APP_OPENED',
+            source: 'system',
+            uiSessionId: createSessionId()
+          });
+          if (response?.state) {
+            set({ engineState: response.state });
+          }
+        } catch (error) {
+          console.warn('CarePulse: Failed to send app opened event:', error);
         }
       },
       recordPopupShown: async () => {

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
+import { featureFlags } from '../../lib/featureFlags';
+import { tokenStore } from '../../lib/tokenStore';
 import { authApi, LoginPayload } from './auth.api';
 import { buildBypassProfile } from './auth.dev-bypass';
-import { tokenStore } from '../../lib/tokenStore';
-import { featureFlags } from '../../lib/featureFlags';
 import { authService, SocialProvider } from './auth.service';
 
 export type Profile = {
@@ -101,7 +101,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await authApi.login(payload);
       const token = response.token || null;
-      const profile = response.profile || (await authApi.fetchProfile());
+      // Handle both profile and user response formats from backend
+      let profile = response.profile;
+      if (!profile && response.user) {
+        profile = {
+          id: String(response.user.id),
+          name: response.user.email?.split('@')[0] || 'User',
+          email: response.user.email
+        };
+      }
+      if (!profile) {
+        profile = await authApi.fetchProfile();
+      }
       if (token) {
         await tokenStore.setToken(token);
       }

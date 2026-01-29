@@ -1,5 +1,6 @@
 import { apiClient } from '../../lib/apiClient';
 import { Profile } from './auth.store';
+import { authenticateWithProvider, OAuthProvider } from './oauth.service';
 
 export type SocialProvider = 'google' | 'apple' | 'zalo';
 
@@ -26,25 +27,70 @@ const createZeroOtpError = (message: string) =>
 
 export const authService = {
   async submitPhoneAuth(payload: PhoneAuthPayload): Promise<ZeroOtpResponse> {
-    // TODO: Replace with backend endpoint when zero-OTP phone auth is available.
     try {
-      return await apiClient<ZeroOtpResponse>('/api/mobile/auth/zero-otp/phone', {
+      const response = await apiClient<{ok: boolean, token: string, user: {id: string, email?: string}}>('/api/mobile/auth/phone', {
         method: 'POST',
-        body: payload
+        body: { phone_number: payload.phone }
       });
+      
+      return {
+        token: response.token,
+        profile: {
+          id: response.user.id,
+          name: response.user.email?.split('@')[0] || 'User',
+          email: response.user.email,
+          phone: payload.phone
+        }
+      };
     } catch (error) {
-      return Promise.reject(createZeroOtpError('Zero-OTP phone auth endpoint is not available yet.'));
+      throw error;
     }
   },
   async submitSocialAuth(payload: SocialAuthPayload): Promise<ZeroOtpResponse> {
-    // TODO: Replace with backend endpoint when social zero-OTP auth is available.
     try {
-      return await apiClient<ZeroOtpResponse>('/api/mobile/auth/zero-otp/social', {
-        method: 'POST',
-        body: payload
-      });
+      // Step 1: Perform real OAuth authentication to get token and profile
+      console.log(`[auth.service] Starting ${payload.provider} OAuth flow`);
+      const oauthResult = await authenticateWithProvider(payload.provider as OAuthProvider);
+      
+      if (oauthResult.type === 'cancel') {
+        throw new Error('Authentication cancelled by user');
+      }
+      
+      if (oauthResult.type === 'error') {
+        throw new Error(oauthResult.error || 'OAuth authentication failed');
+      }
+      
+      // Step 2: Send OAuth result to backend for verification and user creation
+      const endpoint = `/api/auth/${payload.provider}`;
+      const providerId = oauthResult.profile?.sub || `${payload.provider}_${Date.now()}`;
+      const email = oauthResult.profile?.email || payload.rawProfile?.email as string;
+      
+      const response = await apiClient<{ok: boolean, token: string, user: {id: string, email?: string}}>(
+        endpoint,
+        {
+          method: 'POST',
+          body: {
+            token: oauthResult.token || oauthResult.idToken || 'oauth-token',
+            provider_id: providerId,
+            email: email,
+            phone_number: payload.phone
+          }
+        }
+      );
+      
+      return {
+        token: response.token,
+        profile: {
+          id: response.user.id,
+          name: oauthResult.profile?.name || response.user.email?.split('@')[0] || 'User',
+          email: response.user.email,
+          phone: payload.phone,
+          avatarUrl: oauthResult.profile?.picture
+        }
+      };
     } catch (error) {
-      return Promise.reject(createZeroOtpError('Zero-OTP social auth endpoint is not available yet.'));
+      console.log(`[auth.service] ${payload.provider} auth failed:`, error);
+      throw error;
     }
   }
 };

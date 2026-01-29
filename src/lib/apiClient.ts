@@ -1,6 +1,6 @@
 import { env } from './env';
-import { tokenStore } from './tokenStore';
 import { logError, logWarn } from './logger';
+import { tokenStore } from './tokenStore';
 
 type RetryOptions = {
   attempts?: number;
@@ -89,8 +89,14 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
           continue;
         }
         const errorText = await response.text();
-        logError(new Error(errorText || `Request failed: ${response.status}`), { url, method, status: response.status });
-        throw new Error(errorText || `Request failed: ${response.status}`);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || `Request failed: ${response.status}` };
+        }
+        logError(new Error(errorData.error || errorText || `Request failed: ${response.status}`), { url, method, status: response.status });
+        throw new Error(errorData.error || errorText || `Request failed: ${response.status}`);
       }
 
       if (response.status === 204) {

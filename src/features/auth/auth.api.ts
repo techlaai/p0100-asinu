@@ -7,18 +7,29 @@ export type LoginPayload = {
 };
 
 export type LoginResponse = {
+  ok: boolean;
   token?: string;
+  user?: { id: number; email: string };
   profile?: Profile;
 };
 
 export type VerifyResponse = {
+  ok: boolean;
   token?: string;
   profile?: Profile;
 };
 
+export type ProfileResponse = {
+  ok: boolean;
+  profile: Profile;
+};
+
 export const authApi = {
   login(payload: LoginPayload) {
-    return apiClient<LoginResponse>('/api/mobile/auth/login', { method: 'POST', body: payload });
+    return apiClient<LoginResponse>('/api/auth/email/login', { method: 'POST', body: payload });
+  },
+  register(payload: LoginPayload) {
+    return apiClient<LoginResponse>('/api/auth/email/register', { method: 'POST', body: payload });
   },
   verify() {
     return apiClient<VerifyResponse>('/api/auth/verify', {
@@ -27,12 +38,12 @@ export const authApi = {
     });
   },
   fetchProfile() {
-    return apiClient<Profile>('/api/mobile/profile');
+    return apiClient<ProfileResponse>('/api/mobile/profile').then(res => res.profile);
   },
   logout() {
-    return apiClient<void>('/api/mobile/auth/logout', { method: 'POST' });
+    return apiClient<{ ok: boolean; message: string }>('/api/mobile/auth/logout', { method: 'POST' });
   },
   deleteAccount() {
-    return apiClient<void>('/api/auth/me', { method: 'DELETE' });
+    return apiClient<{ ok: boolean; message: string }>('/api/auth/me', { method: 'DELETE' });
   }
 };
