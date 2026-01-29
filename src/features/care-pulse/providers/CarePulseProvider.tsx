@@ -1,4 +1,4 @@
-﻿import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+﻿import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useSession } from '../../../providers/SessionProvider';
 import { PulsePopup } from '../components/PulsePopup';
@@ -70,6 +70,7 @@ export const CarePulseProvider = ({ children }: Props) => {
 
     const now = new Date();
     const latestState = engineStateRef.current;
+    if (!latestState) return;
     const shouldShow = shouldOpenPopupFromState(latestState, now);
     if (shouldShow && !popupVisibleRef.current) {
       openPulsePopup();
@@ -86,10 +87,17 @@ export const CarePulseProvider = ({ children }: Props) => {
     return () => subscription.remove();
   }, [runScheduler]);
 
+  const handleClosePopup = useCallback(() => setPopupVisible(false), []);
+  
+  const contextValue = useMemo(
+    () => ({ openPulsePopup }),
+    [openPulsePopup]
+  );
+
   return (
-    <CarePulseContext.Provider value={{ openPulsePopup }}>
+    <CarePulseContext.Provider value={contextValue}>
       {children}
-      <PulsePopup visible={popupVisible} onClose={() => setPopupVisible(false)} />
+      <PulsePopup visible={popupVisible} onClose={handleClosePopup} />
     </CarePulseContext.Provider>
   );
 };

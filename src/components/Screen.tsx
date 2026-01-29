@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { View, ViewProps } from 'react-native';
+import { StyleSheet, View, ViewProps } from 'react-native';
 import { colors } from '../styles';
 
 type ScreenProps = ViewProps & {
@@ -7,5 +7,12 @@ type ScreenProps = ViewProps & {
 };
 
 export const Screen = ({ children, style }: ScreenProps) => {
-  return <View style={[{ flex: 1, backgroundColor: colors.background }, style]}>{children}</View>;
+  return <View style={[styles.container, style]}>{children}</View>;
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background
+  }
+});

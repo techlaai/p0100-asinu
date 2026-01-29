@@ -1,7 +1,7 @@
 import { apiClient } from '../../lib/apiClient';
 import { LogEntry } from './logs.store';
 
-// Frontend payload types (giữ nguyên format cũ)
+// Frontend payload types - matched with database schema
 type BaseLogPayload = {
   tags?: string[];
   notes?: string;
@@ -10,21 +10,30 @@ type BaseLogPayload = {
 
 export type GlucoseLogPayload = BaseLogPayload & {
   value: number;
+  unit?: string; // default: mg/dL
+  context?: 'fasting' | 'pre_meal' | 'post_meal' | 'before_sleep' | 'random';
+  meal_tag?: string;
 };
 
 export type BloodPressureLogPayload = BaseLogPayload & {
   systolic: number;
   diastolic: number;
+  pulse?: number;
+  unit?: string; // default: mmHg
 };
 
 export type MedicationLogPayload = BaseLogPayload & {
-  medication: string;
-  dose: string;
+  medication: string; // maps to med_name
+  dose: string; // maps to dose_text
+  dose_value?: number;
+  dose_unit?: string;
+  frequency_text?: string;
 };
 
 export type WeightLogPayload = BaseLogPayload & {
   weight_kg: number;
-  bodyfat_pct?: number;
+  bodyfat_pct?: number; // maps to body_fat_percent
+  muscle_pct?: number; // maps to muscle_percent
 };
 
 export type WaterLogPayload = BaseLogPayload & {
@@ -32,21 +41,20 @@ export type WaterLogPayload = BaseLogPayload & {
 };
 
 export type MealLogPayload = BaseLogPayload & {
-  title: string;
-  macros?: string;
-  kcal?: number;
+  title: string; // maps to meal_text
+  kcal?: number; // maps to calories_kcal
   carbs_g?: number;
   protein_g?: number;
   fat_g?: number;
-  photo_key?: string;
-  meal_id?: string;
+  photo_key?: string; // maps to photo_url
 };
 
 export type InsulinLogPayload = BaseLogPayload & {
-  insulin_type: string;
+  insulin_type?: string;
   dose_units: number;
-  timing?: string;
-  meal_id?: string;
+  unit?: string; // default: U
+  timing?: 'pre_meal' | 'post_meal' | 'bedtime' | 'correction' | string;
+  injection_site?: string;
 };
 
 // Map Vietnamese tags to backend context
@@ -82,22 +90,24 @@ const transformToBackendPayload = (logType: string, frontendPayload: BaseLogPayl
     case 'glucose':
       data = {
         value: frontendPayload.value,
-        unit: 'mg/dL',
-        context,
-        meal_tag: frontendPayload.tags?.join(', ')
+        unit: frontendPayload.unit || 'mg/dL',
+        context: frontendPayload.context || context,
+        meal_tag: frontendPayload.meal_tag || frontendPayload.tags?.join(', ')
       };
       break;
     case 'bp':
       data = {
         systolic: frontendPayload.systolic,
         diastolic: frontendPayload.diastolic,
-        unit: 'mmHg'
+        pulse: frontendPayload.pulse,
+        unit: frontendPayload.unit || 'mmHg'
       };
       break;
     case 'weight':
       data = {
         weight_kg: frontendPayload.weight_kg,
-        body_fat_percent: frontendPayload.bodyfat_pct
+        body_fat_percent: frontendPayload.bodyfat_pct,
+        muscle_percent: frontendPayload.muscle_pct
       };
       break;
     case 'water':
@@ -119,13 +129,18 @@ const transformToBackendPayload = (logType: string, frontendPayload: BaseLogPayl
       data = {
         insulin_type: frontendPayload.insulin_type,
         dose_units: frontendPayload.dose_units,
-        timing: frontendPayload.timing || context
+        unit: frontendPayload.unit || 'U',
+        timing: frontendPayload.timing || context,
+        injection_site: frontendPayload.injection_site
       };
       break;
     case 'medication':
       data = {
         med_name: frontendPayload.medication,
-        dose_text: frontendPayload.dose
+        dose_text: frontendPayload.dose,
+        dose_value: frontendPayload.dose_value,
+        dose_unit: frontendPayload.dose_unit,
+        frequency_text: frontendPayload.frequency_text
       };
       break;
   }
@@ -154,11 +169,28 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
 
     switch (log.log_type) {
       case 'glucose':
-        return { ...baseEntry, value: detail.value };
+        return { 
+          ...baseEntry, 
+          value: detail.value,
+          unit: detail.unit,
+          context: detail.context,
+          meal_tag: detail.meal_tag
+        };
       case 'bp':
-        return { ...baseEntry, systolic: detail.systolic, diastolic: detail.diastolic };
+        return { 
+          ...baseEntry, 
+          systolic: detail.systolic, 
+          diastolic: detail.diastolic,
+          pulse: detail.pulse,
+          unit: detail.unit
+        };
       case 'weight':
-        return { ...baseEntry, weight_kg: detail.weight_kg, bodyfat_pct: detail.body_fat_percent };
+        return { 
+          ...baseEntry, 
+          weight_kg: detail.weight_kg, 
+          bodyfat_pct: detail.body_fat_percent,
+          muscle_pct: detail.muscle_percent
+        };
       case 'water':
         return { ...baseEntry, volume_ml: detail.volume_ml };
       case 'meal':
@@ -176,10 +208,19 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
           ...baseEntry, 
           insulin_type: detail.insulin_type, 
           dose_units: detail.dose_units,
-          timing: detail.timing 
+          unit: detail.unit,
+          timing: detail.timing,
+          injection_site: detail.injection_site
         };
       case 'medication':
-        return { ...baseEntry, medication: detail.med_name, dose: detail.dose_text };
+        return { 
+          ...baseEntry, 
+          medication: detail.med_name, 
+          dose: detail.dose_text,
+          dose_value: detail.dose_value,
+          dose_unit: detail.dose_unit,
+          frequency_text: detail.frequency_text
+        };
       default:
         return baseEntry;
     }
@@ -194,6 +235,18 @@ export const logsApi = {
     });
     // Transform backend format to frontend format
     return transformToFrontendLogs(response.logs || []);
+  },
+  async fetchLatestByType(logType: string, options?: { signal?: AbortSignal }): Promise<LogEntry | null> {
+    try {
+      const response = await apiClient<LogsResponse>(`/api/mobile/logs?type=${logType}&limit=1`, {
+        retry: { attempts: 1, initialDelayMs: 300 },
+        signal: options?.signal
+      });
+      const logs = transformToFrontendLogs(response.logs || []);
+      return logs.length > 0 ? logs[0] : null;
+    } catch {
+      return null;
+    }
   },
   createGlucose(payload: GlucoseLogPayload) {
     const backendPayload = transformToBackendPayload('glucose', payload);

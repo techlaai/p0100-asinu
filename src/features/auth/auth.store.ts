@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { featureFlags } from '../../lib/featureFlags';
 import { tokenStore } from '../../lib/tokenStore';
-import { authApi, LoginPayload } from './auth.api';
+import { authApi, LoginPayload, UpdateProfilePayload } from './auth.api';
 import { buildBypassProfile } from './auth.dev-bypass';
 import { authService, SocialProvider } from './auth.service';
 
@@ -23,6 +23,7 @@ type AuthState = {
   login: (payload: LoginPayload) => Promise<void>;
   loginWithPhone: (phone: string) => Promise<void>;
   loginWithSocial: (provider: SocialProvider) => Promise<void>;
+  updateProfile: (payload: UpdateProfilePayload) => Promise<void>;
   deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -34,7 +35,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   async bootstrap() {
     set({ loading: true, error: undefined });
     if (featureFlags.devBypassAuth) {
-      set({ profile: buildBypassProfile(), loading: false });
+      // In DEV mode, load token from storage or use dev-bypass
+      await tokenStore.loadToken();
+      let token = tokenStore.getToken();
+      if (!token) {
+        // If no token in storage, set dev-bypass token
+        await tokenStore.setToken('dev-bypass');
+        token = 'dev-bypass';
+      }
+      set({ profile: buildBypassProfile(), token, loading: false });
       return;
     }
 
@@ -168,6 +177,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       set({ loading: false, error: (error as Error).message });
       throw error;
+    }
+  },
+  async updateProfile(payload) {
+    set({ loading: true, error: undefined });
+    try {
+      const updatedProfile = await authApi.updateProfile(payload);
+      set({ profile: updatedProfile, loading: false });
+    } catch (error) {
+      // Update locally if API fails (for demo mode)
+      const currentProfile = get().profile;
+      if (currentProfile) {
+        set({
+          profile: {
+            ...currentProfile,
+            name: payload.name ?? currentProfile.name,
+            phone: payload.phone ?? currentProfile.phone
+          },
+          loading: false
+        });
+      } else {
+        set({ loading: false, error: (error as Error).message });
+        throw error;
+      }
     }
   },
   async logout() {

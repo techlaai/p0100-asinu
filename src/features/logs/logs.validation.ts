@@ -74,7 +74,6 @@ export const validateWaterPayload = (volume: string): ValidationResult<WaterLogP
 
 export const validateMealPayload = (
   title: string,
-  macros?: string,
   kcal?: string,
   photo_key?: string,
   notes?: string
@@ -85,27 +84,28 @@ export const validateMealPayload = (
   let kcalNumber: number | undefined;
   if (kcal) {
     const num = requireNumber(kcal);
-    if (num === null || !isHalfStepNumber(num)) {
-      return { ok: false, errors: { kcal: 'Kcal phải là bội số 0.5.' } };
+    if (num === null || num < 0) {
+      return { ok: false, errors: { kcal: 'Calories không hợp lệ.' } };
     }
     kcalNumber = num;
   }
   return {
     ok: true,
-    value: { title: title.trim(), macros, kcal: kcalNumber, photo_key, notes }
+    value: { title: title.trim(), kcal: kcalNumber, photo_key, notes }
   };
 };
 
 export const validateInsulinPayload = (
   insulin_type: string,
   dose_units: string,
-  meal_id?: string,
+  timing?: string,
   notes?: string
 ): ValidationResult<InsulinLogPayload> => {
-  if (!insulin_type.trim()) return { ok: false, errors: { insulin_type: 'Vui lòng nhập loại insulin.' } };
   const dose = requireNumber(dose_units);
-  if (dose === null || !isHalfStepNumber(dose)) {
-    return { ok: false, errors: { dose_units: 'Liều insulin phải là bội số 0.5.' } };
+  if (dose === null || dose < 0.1 || !isHalfStepNumber(dose)) {
+    return { ok: false, errors: { dose_units: 'Liều insulin phải >= 0.1 và là bội số 0.5.' } };
   }
-  return { ok: true, value: { insulin_type: insulin_type.trim(), dose_units: dose, meal_id: meal_id || undefined, notes } };
+  // insulin_type is optional per backend schema
+  const type = insulin_type.trim() || undefined;
+  return { ok: true, value: { insulin_type: type, dose_units: dose, timing: timing || undefined, notes } };
 };

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, typography } from '../../styles';
 import { Button } from '../Button';
 
@@ -11,7 +11,7 @@ export const StateError = ({ message = 'Có lỗi xảy ra', onRetry }: Props) =
   <View style={styles.container}>
     <Text style={styles.title}>Không tải được dữ liệu</Text>
     <Text style={styles.subtitle}>{message}</Text>
-    {onRetry ? <Button label="Thử lại" onPress={onRetry} style={{ marginTop: spacing.md }} /> : null}
+    {onRetry ? <Button label="Thử lại" onPress={onRetry} style={styles.retryButton} /> : null}
   </View>
 );
 
@@ -29,5 +29,8 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textSecondary,
     textAlign: 'center'
+  },
+  retryButton: {
+    marginTop: spacing.md
   }
 });

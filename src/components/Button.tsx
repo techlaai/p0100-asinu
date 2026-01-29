@@ -1,5 +1,6 @@
-import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { colors, spacing, radius, typography } from '../styles';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
+import { colors, radius, spacing, typography } from '../styles';
 
 type ButtonVariant = 'primary' | 'secondary' | 'warning' | 'ghost';
 
@@ -13,31 +14,45 @@ export type ButtonProps = {
 };
 
 export const Button = ({ label, onPress, variant = 'primary', disabled, style, textStyle }: ButtonProps) => {
-  const palette =
-    variant === 'secondary'
-      ? colors.secondary
-      : variant === 'warning'
-        ? colors.warning
-        : colors.primary;
-  const backgroundColor = variant === 'ghost' ? 'transparent' : palette;
-  const textColor = variant === 'ghost' ? colors.textPrimary : colors.surface;
-  const borderColor = variant === 'ghost' ? colors.border : palette;
+  const variantStyles = useMemo(() => {
+    const palette =
+      variant === 'secondary'
+        ? colors.secondary
+        : variant === 'warning'
+          ? colors.warning
+          : colors.primary;
+    const backgroundColor = variant === 'ghost' ? 'transparent' : palette;
+    const textColor = variant === 'ghost' ? colors.textPrimary : colors.surface;
+    const borderColor = variant === 'ghost' ? colors.border : palette;
+    
+    return { backgroundColor, textColor, borderColor };
+  }, [variant]);
+
+  const getButtonStyle = useMemo(
+    () => ({ pressed }: { pressed: boolean }) => [
+      styles.base,
+      {
+        backgroundColor: variantStyles.backgroundColor,
+        opacity: disabled ? 0.5 : pressed ? 0.9 : 1,
+        borderColor: variantStyles.borderColor
+      },
+      style
+    ],
+    [variantStyles, disabled, style]
+  );
+
+  const labelStyle = useMemo(
+    () => [styles.label, { color: variantStyles.textColor }, textStyle],
+    [variantStyles.textColor, textStyle]
+  );
 
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [
-        styles.base,
-        {
-          backgroundColor,
-          opacity: disabled ? 0.5 : pressed ? 0.9 : 1,
-          borderColor
-        },
-        style
-      ]}
+      style={getButtonStyle}
     >
-      <Text style={[styles.label, { color: textColor }, textStyle]}>{label}</Text>
+      <Text style={labelStyle}>{label}</Text>
     </Pressable>
   );
 };

@@ -10,7 +10,7 @@
     "orientation": "portrait",
     "scheme": "asinu-lite",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "assetBundlePatterns": [
       "**/*"
     ],

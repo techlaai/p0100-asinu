@@ -98,49 +98,56 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       throw new Error('Google Client ID not configured');
     }
 
-    // Use expo-auth-session for cross-platform OAuth
-    const { AuthSession } = require('expo-auth-session');
+    // Use expo-auth-session promptAsync (not hook)
+    const AuthSession = require('expo-auth-session');
     const redirectUri = makeRedirectUri({
       scheme: 'asinu',
       path: 'auth/google'
     });
 
-    const discovery = {
-      authorizationEndpoint: GOOGLE_CONFIG.authorizationEndpoint,
-      tokenEndpoint: GOOGLE_CONFIG.tokenEndpoint,
-      revocationEndpoint: GOOGLE_CONFIG.revocationEndpoint
-    };
+    const authUrl = AuthSession.makeAuthRequest({
+      clientId,
+      scopes: GOOGLE_CONFIG.scopes,
+      redirectUri,
+      responseType: AuthSession.ResponseType.Token,
+      usePKCE: false,
+      state: `google_${Date.now()}`,
+      prompt: AuthSession.Prompt.SelectAccount
+    });
 
-    const [request, response, promptAsync] = AuthSession.useAuthRequest(
-      {
-        clientId,
-        scopes: GOOGLE_CONFIG.scopes,
-        redirectUri,
-        responseType: AuthSession.ResponseType.Token,
-        usePKCE: false
-      },
-      discovery
-    );
+    // Build authorization URL
+    const authUrlString = `${GOOGLE_CONFIG.authorizationEndpoint}?${new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'token',
+      scope: GOOGLE_CONFIG.scopes.join(' '),
+      state: authUrl.state || ''
+    }).toString()}`;
 
-    if (!request) {
-      throw new Error('Failed to create Google auth request');
-    }
+    // Open browser for OAuth
+    const result = await WebBrowser.openAuthSessionAsync(authUrlString, redirectUri);
 
-    const result = await promptAsync();
+    if (result.type === 'success' && result.url) {
+      // Parse token from redirect URL
+      const url = new URL(result.url);
+      const params = new URLSearchParams(url.hash.substring(1));
+      const accessToken = params.get('access_token');
+      const idToken = params.get('id_token');
 
-    if (result.type === 'success') {
-      const { access_token, id_token } = result.params;
+      if (!accessToken) {
+        throw new Error('No access token received');
+      }
 
       // Fetch user profile
       const profileResponse = await fetch(GOOGLE_CONFIG.userInfoEndpoint, {
-        headers: { Authorization: `Bearer ${access_token}` }
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
       const profile = await profileResponse.json();
 
       return {
         type: 'success',
-        token: access_token,
-        idToken: id_token,
+        token: accessToken,
+        idToken: idToken || undefined,
         profile: {
           email: profile.email,
           name: profile.name,
@@ -251,40 +258,32 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
       throw new Error('Zalo App ID not configured');
     }
 
-    // Use expo-auth-session for Zalo OAuth
-    const { AuthSession } = require('expo-auth-session');
+    // Use WebBrowser for Zalo OAuth
     const redirectUri = makeRedirectUri({
       scheme: 'asinu',
       path: 'auth/zalo'
     });
 
-    const discovery = {
-      authorizationEndpoint: ZALO_CONFIG.authorizationEndpoint,
-      tokenEndpoint: ZALO_CONFIG.tokenEndpoint
-    };
+    const state = `zalo_${Date.now()}`;
 
-    const [request, response, promptAsync] = AuthSession.useAuthRequest(
-      {
-        clientId: appId,
-        scopes: ZALO_CONFIG.scopes,
-        redirectUri,
-        responseType: AuthSession.ResponseType.Code,
-        extraParams: {
-          app_id: appId,
-          state: 'zalo_auth_state'
-        }
-      },
-      discovery
-    );
+    // Build Zalo authorization URL
+    const authUrl = `${ZALO_CONFIG.authorizationEndpoint}?${new URLSearchParams({
+      app_id: appId,
+      redirect_uri: redirectUri,
+      state
+    }).toString()}`;
 
-    if (!request) {
-      throw new Error('Failed to create Zalo auth request');
-    }
+    // Open browser for OAuth
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
 
-    const result = await promptAsync();
+    if (result.type === 'success' && result.url) {
+      // Parse code from redirect URL
+      const url = new URL(result.url);
+      const code = url.searchParams.get('code');
 
-    if (result.type === 'success') {
-      const { code } = result.params;
+      if (!code) {
+        throw new Error('No authorization code received');
+      }
 
       // Exchange code for access token
       const tokenResponse = await fetch(ZALO_CONFIG.tokenEndpoint, {
@@ -299,6 +298,10 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
 
       const tokenData = await tokenResponse.json();
       const accessToken = tokenData.access_token;
+
+      if (!accessToken) {
+        throw new Error('Failed to get access token from Zalo');
+      }
 
       // Fetch user profile
       const profileResponse = await fetch(

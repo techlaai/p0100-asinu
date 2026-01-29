@@ -1,21 +1,19 @@
-import { useEffect, useMemo } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useTreeStore } from '../../../src/features/tree/tree.store';
-import { useLogsStore } from '../../../src/features/logs/logs.store';
-import { useAuthStore } from '../../../src/features/auth/auth.store';
+import { Button } from '../../../src/components/Button';
+import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { Screen } from '../../../src/components/Screen';
+import { StateEmpty } from '../../../src/components/state/StateEmpty';
+import { StateError } from '../../../src/components/state/StateError';
+import { StateLoading } from '../../../src/components/state/StateLoading';
+import { useLogsStore } from '../../../src/features/logs/logs.store';
+import { useTreeStore } from '../../../src/features/tree/tree.store';
+import { colors, spacing, typography } from '../../../src/styles';
+import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
 import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
 import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
-import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
-import { colors, spacing, typography } from '../../../src/styles';
-import { Button } from '../../../src/components/Button';
-import { StateLoading } from '../../../src/components/state/StateLoading';
-import { StateError } from '../../../src/components/state/StateError';
-import { StateEmpty } from '../../../src/components/state/StateEmpty';
-import { OfflineBanner } from '../../../src/components/OfflineBanner';
-import { DEMO_ACCOUNT_EMAIL } from '../../../src/lib/links';
 
 export default function TreeScreen() {
   const summary = useTreeStore((state) => state.summary);
@@ -25,28 +23,10 @@ export default function TreeScreen() {
   const isStale = useTreeStore((state) => state.isStale);
   const errorState = useTreeStore((state) => state.errorState);
   const recentLogs = useLogsStore((state) => state.recent);
-  const profile = useAuthStore((state) => state.profile);
+  const fetchLogs = useLogsStore((state) => state.fetchRecent);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
-
-  // isDemoAccount derived from profile email matching DEMO_ACCOUNT_EMAIL
-  const isDemoAccount = Boolean(
-    profile?.email?.toLowerCase().includes(DEMO_ACCOUNT_EMAIL)
-  );
-
-  const demoHistory = useMemo(
-    () => [
-      { label: 'T2', value: 118 },
-      { label: 'T3', value: 124 },
-      { label: 'T4', value: 121 },
-      { label: 'T5', value: 130 },
-      { label: 'T6', value: 126 },
-      { label: 'T7', value: 122 },
-      { label: 'CN', value: 128 }
-    ],
-    []
-  );
 
   const formatTime = (iso?: string) => {
     if (!iso) {
@@ -67,42 +47,7 @@ export default function TreeScreen() {
   const weightLog = latestLogByType('weight');
   const waterLog = latestLogByType('water');
 
-  const demoMetrics = [
-    {
-      key: 'glucose',
-      title: 'Đường huyết',
-      value: '128',
-      unit: 'mg/dL',
-      meta: 'Gần nhất: 07:45',
-      trend: 'Ổn định'
-    },
-    {
-      key: 'blood-pressure',
-      title: 'Huyết áp',
-      value: '125/78',
-      unit: 'mmHg',
-      meta: 'Gần nhất: 08:10',
-      trend: 'Bình thường'
-    },
-    {
-      key: 'weight',
-      title: 'Cân nặng',
-      value: '67.2',
-      unit: 'kg',
-      meta: 'Gần nhất: 07:30',
-      trend: 'Ổn định'
-    },
-    {
-      key: 'water',
-      title: 'Nước uống',
-      value: '1200 / 2000',
-      unit: 'ml',
-      meta: 'Hôm nay',
-      trend: 'Cần thêm'
-    }
-  ];
-
-  const liveMetrics = [
+  const metrics = [
     {
       key: 'glucose',
       title: 'Đường huyết',
@@ -110,7 +55,8 @@ export default function TreeScreen() {
       unit: 'mg/dL',
       meta: glucoseLog?.recordedAt
         ? `Gần nhất: ${formatTime(glucoseLog.recordedAt)}`
-        : 'Chưa có dữ liệu'
+        : 'Chưa có dữ liệu',
+      trend: undefined
     },
     {
       key: 'blood-pressure',
@@ -120,34 +66,37 @@ export default function TreeScreen() {
           ? `${bpLog.systolic}/${bpLog.diastolic}`
           : '--',
       unit: 'mmHg',
-      meta: bpLog?.recordedAt ? `Gần nhất: ${formatTime(bpLog.recordedAt)}` : 'Chưa có dữ liệu'
+      meta: bpLog?.recordedAt ? `Gần nhất: ${formatTime(bpLog.recordedAt)}` : 'Chưa có dữ liệu',
+      trend: undefined
     },
     {
       key: 'weight',
       title: 'Cân nặng',
       value: typeof weightLog?.weight_kg === 'number' ? `${weightLog.weight_kg}` : '--',
       unit: 'kg',
-      meta: weightLog?.recordedAt ? `Gần nhất: ${formatTime(weightLog.recordedAt)}` : 'Chưa có dữ liệu'
+      meta: weightLog?.recordedAt ? `Gần nhất: ${formatTime(weightLog.recordedAt)}` : 'Chưa có dữ liệu',
+      trend: undefined
     },
     {
       key: 'water',
       title: 'Nước uống',
       value: typeof waterLog?.volume_ml === 'number' ? `${waterLog.volume_ml}` : '--',
       unit: 'ml',
-      meta: waterLog?.volume_ml ? 'Hôm nay' : 'Chưa có dữ liệu'
+      meta: waterLog?.volume_ml ? 'Hôm nay' : 'Chưa có dữ liệu',
+      trend: undefined
     }
   ];
 
-  const metrics = isDemoAccount ? demoMetrics : liveMetrics;
   const hasAnyMetric = metrics.some((metric) => metric.value !== '--');
-  const showChart = isDemoAccount || hasAnyMetric;
-  const chartData = isDemoAccount ? demoHistory : showChart ? history : [];
+  const showChart = hasAnyMetric;
+  const chartData = showChart ? history : [];
 
   useEffect(() => {
     const controller = new AbortController();
     fetchTree(controller.signal);
+    fetchLogs(controller.signal);
     return () => controller.abort();
-  }, [fetchTree]);
+  }, [fetchTree, fetchLogs]);
 
   return (
     <Screen>
@@ -187,7 +136,7 @@ export default function TreeScreen() {
             </View>
           ))}
         </View>
-        {!isDemoAccount && !hasAnyMetric ? (
+        {!hasAnyMetric ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyText}>
               Bạn chưa có dữ liệu. Hãy ghi log hôm nay để thấy tiến trình.

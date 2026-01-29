@@ -1,5 +1,5 @@
-import { TextInput as RNTextInput, StyleSheet, View, Text, TextInputProps } from 'react-native';
-import { colors, spacing, radius, typography } from '../styles';
+import { TextInput as RNTextInput, StyleSheet, Text, TextInputProps, View } from 'react-native';
+import { colors, radius, spacing, typography } from '../styles';
 
 type Props = TextInputProps & {
   label?: string;
@@ -13,8 +13,8 @@ export const TextInput = ({ label, error, style, ...rest }: Props) => {
       <RNTextInput
         style={[
           styles.input,
-          style,
-          error ? { borderColor: colors.danger } : { borderColor: colors.border }
+          error ? styles.inputError : styles.inputNormal,
+          style
         ]}
         placeholderTextColor={colors.textSecondary}
         {...rest}
@@ -42,6 +42,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     color: colors.textPrimary,
     fontSize: typography.size.md
+  },
+  inputError: {
+    borderColor: colors.danger
+  },
+  inputNormal: {
+    borderColor: colors.border
   },
   error: {
     color: colors.danger,

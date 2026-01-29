@@ -8,7 +8,6 @@ type AsinuChatStickerProps = {
 };
 
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
-    console.log('RENDERED_V2: src/components/AsinuChatSticker.tsx');
   return (
     <Pressable style={styles.wrapper} onPress={onPress} accessibilityRole="button">
       <Image source={AsinuSticker} style={styles.sticker} resizeMode="contain" />

@@ -18,10 +18,9 @@ type CarePulseStore = {
   checkIn: (status: PulseStatus, subStatus: string | undefined, triggerSource: TriggerSource) => Promise<void>;
 };
 
-const createSessionId = () => {
-  const cryptoObj = globalThis.crypto as { randomUUID?: () => string } | undefined;
-  if (cryptoObj?.randomUUID) {
-    return cryptoObj.randomUUID();
+const createSessionId = (): string => {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;

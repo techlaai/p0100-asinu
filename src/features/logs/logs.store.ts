@@ -3,6 +3,7 @@ import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
 import { logError } from '../../lib/logger';
+import { logActivity } from '../wellness/api/wellness.api';
 import {
   BloodPressureLogPayload,
   GlucoseLogPayload,
@@ -17,25 +18,40 @@ import {
 export type LogEntry = {
   id: string;
   type: 'glucose' | 'blood-pressure' | 'medication' | 'weight' | 'water' | 'meal' | 'insulin';
+  // Glucose fields
   value?: number;
+  unit?: string;
+  context?: string;
+  meal_tag?: string;
+  // Blood pressure fields
   systolic?: number;
   diastolic?: number;
+  pulse?: number;
+  // Medication fields
   medication?: string;
   dose?: string;
+  dose_value?: number;
+  dose_unit?: string;
+  frequency_text?: string;
+  // Weight fields
   weight_kg?: number;
   bodyfat_pct?: number;
+  muscle_pct?: number;
+  // Water fields
   volume_ml?: number;
+  // Meal fields
   title?: string;
-  macros?: string;
   kcal?: number;
   carbs_g?: number;
   protein_g?: number;
   fat_g?: number;
   photo_key?: string;
+  // Insulin fields
   insulin_type?: string;
   dose_units?: number;
   timing?: string;
-  meal_id?: string;
+  injection_site?: string;
+  // Common fields
   tags?: string[];
   notes?: string;
   recordedAt?: string;
@@ -128,6 +144,8 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ recent: [optimistic, ...get().recent] });
     try {
       await logsApi.createGlucose(payload);
+      // Log wellness activity
+      logActivity('HEALTH_MEASUREMENT', { type: 'glucose', value: payload.value }).catch(() => {});
       await get().fetchRecent();
       return optimistic;
     } catch (error) {
@@ -149,6 +167,8 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ recent: [optimistic, ...get().recent] });
     try {
       await logsApi.createBloodPressure(payload);
+      // Log wellness activity
+      logActivity('HEALTH_MEASUREMENT', { type: 'blood_pressure', systolic: payload.systolic, diastolic: payload.diastolic }).catch(() => {});
       await get().fetchRecent();
       return optimistic;
     } catch (error) {
@@ -190,6 +210,8 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ recent: [optimistic, ...get().recent] });
     try {
       await logsApi.createWeight(payload);
+      // Log wellness activity
+      logActivity('HEALTH_MEASUREMENT', { type: 'weight', value: payload.weight_kg }).catch(() => {});
       await get().fetchRecent();
       return optimistic;
     } catch (error) {
@@ -209,6 +231,8 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ recent: [optimistic, ...get().recent] });
     try {
       await logsApi.createWater(payload);
+      // Log wellness activity
+      logActivity('HEALTH_MEASUREMENT', { type: 'water', volume_ml: payload.volume_ml }).catch(() => {});
       await get().fetchRecent();
       return optimistic;
     } catch (error) {

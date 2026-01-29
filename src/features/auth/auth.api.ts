@@ -6,6 +6,11 @@ export type LoginPayload = {
   password: string;
 };
 
+export type UpdateProfilePayload = {
+  name?: string;
+  phone?: string;
+};
+
 export type LoginResponse = {
   ok: boolean;
   token?: string;
@@ -39,6 +44,9 @@ export const authApi = {
   },
   fetchProfile() {
     return apiClient<ProfileResponse>('/api/mobile/profile').then(res => res.profile);
+  },
+  updateProfile(payload: UpdateProfilePayload) {
+    return apiClient<ProfileResponse>('/api/mobile/profile', { method: 'PUT', body: payload }).then(res => res.profile);
   },
   logout() {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/auth/logout', { method: 'POST' });
