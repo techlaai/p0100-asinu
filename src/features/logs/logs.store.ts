@@ -112,6 +112,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     let usedCache = false;
     const cached = await localCache.getCached<LogEntry[]>(CACHE_KEYS.RECENT_LOGS, '1');
     if (cached) {
+      console.log('[logs.store] Using cached logs:', cached.length, 'items');
       set({ recent: cached, status: 'success', isStale: true, errorState: 'none' });
       usedCache = true;
     } else {
@@ -119,10 +120,21 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     }
 
     try {
+      console.log('[logs.store] Fetching fresh logs from API');
       const recent = await logsApi.fetchRecent({ signal });
+      console.log('[logs.store] fetchRecent returned:', recent.length, 'logs');
+      if (recent.length > 0) {
+        console.log('[logs.store] First log:', JSON.stringify(recent[0], null, 2));
+      }
       set({ recent, status: 'success', isStale: false, errorState: 'none' });
       await localCache.setCached(CACHE_KEYS.RECENT_LOGS, '1', recent);
     } catch (error) {
+      // Ignore AbortError - it's expected when component unmounts
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Don't change state, just return silently
+        return;
+      }
+      
       if (usedCache) {
         set({ status: 'success', isStale: true, errorState: 'remote-failed' });
         logError(error, { store: 'logs', action: 'fetchRecent', usedCache: true });

@@ -12,12 +12,16 @@ type Props = {
 export const SessionProvider = ({ children }: Props) => {
   const bootstrap = useAuthStore((state) => state.bootstrap);
   const loading = useAuthStore((state) => state.loading);
+  const hydrated = useAuthStore((state) => state.hydrated);
 
   useEffect(() => {
-    bootstrap();
-  }, [bootstrap]);
+    // Only bootstrap after store is hydrated
+    if (hydrated) {
+      bootstrap();
+    }
+  }, [bootstrap, hydrated]);
 
-  const value = useMemo(() => ({ ready: !loading }), [loading]);
+  const value = useMemo(() => ({ ready: !loading && hydrated }), [loading, hydrated]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };

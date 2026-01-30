@@ -46,10 +46,10 @@ export const useHomeViewModel = () => {
     const diastolicValue = latestBloodPressure ? getLogValue(latestBloodPressure, 'diastolic') : null;
     
     return {
-      glucose: glucoseValue ?? 118,
+      glucose: glucoseValue !== null ? glucoseValue : '--',
       bloodPressure: systolicValue && diastolicValue
         ? `${systolicValue}/${diastolicValue}`
-        : '124/78'
+        : '--'
     };
   }, [logs]);
 

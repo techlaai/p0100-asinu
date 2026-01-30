@@ -98,6 +98,20 @@ export default function TreeScreen() {
     return () => controller.abort();
   }, [fetchTree, fetchLogs]);
 
+  const handleRefresh = () => {
+    console.log('[Tree] Manual refresh triggered');
+    console.log('[Tree] Current recentLogs:', recentLogs.length, 'items');
+    const controller = new AbortController();
+    fetchTree(controller.signal);
+    fetchLogs(controller.signal);
+  };
+
+  console.log('[Tree] Render - recentLogs:', recentLogs.length);
+  console.log('[Tree] glucoseLog:', glucoseLog);
+  console.log('[Tree] bpLog:', bpLog);
+  console.log('[Tree] weightLog:', weightLog);
+  console.log('[Tree] waterLog:', waterLog);
+
   return (
     <Screen>
       {isStale || errorState === 'remote-failed' ? <OfflineBanner /> : null}
@@ -108,6 +122,12 @@ export default function TreeScreen() {
         <H1SectionHeader
           title="Cây sức khỏe"
           subtitle="Tổng hợp từ dữ liệu bạn ghi log (đường huyết, huyết áp, cân nặng, nước uống)"
+        />
+        <Button 
+          label="Cập nhật dữ liệu" 
+          variant="secondary" 
+          onPress={handleRefresh}
+          style={{ marginBottom: spacing.md }}
         />
         <View style={styles.row}>
           <View style={styles.scoreBlock}>
@@ -144,6 +164,11 @@ export default function TreeScreen() {
             <Button label="Ghi nhanh" onPress={() => router.push('/logs')} />
           </View>
         ) : null}
+        <Button 
+          label="Ghi nhanh" 
+          variant="primary"
+          onPress={() => router.push('/logs')} 
+        />
         <Text style={styles.chartLabel}>Biểu đồ chỉ số sức khỏe</Text>
         {showChart ? (
           <C1TrendChart data={chartData} />

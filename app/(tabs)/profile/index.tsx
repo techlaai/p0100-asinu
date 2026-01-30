@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../../src/components/Button';
 import { Screen } from '../../../src/components/Screen';
 import { Toast } from '../../../src/components/Toast';
+import { authApi } from '../../../src/features/auth/auth.api';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useMissionsStore } from '../../../src/features/missions/missions.store';
@@ -13,8 +14,12 @@ import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
 
 export default function ProfileScreen() {
   const profile = useAuthStore((state) => state.profile);
-  const updateProfile = useAuthStore((state) => state.updateProfile);
   const router = useRouter();
+  
+  // Debug log
+  console.log('[profile.screen] profile:', profile);
+  console.log('[profile.screen] profile.name:', profile?.name);
+  console.log('[profile.screen] profile.phone:', profile?.phone);
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
 
@@ -88,12 +93,25 @@ export default function ProfileScreen() {
     
     setIsSaving(true);
     try {
-      await updateProfile({ name: editName.trim(), phone: editPhone.trim() });
+      console.log('[profile.screen] Calling updateProfile API directly with:', { name: editName.trim(), phone: editPhone.trim() });
+      
+      // Call API directly instead of through store
+      const updatedProfile = await authApi.updateProfile({ 
+        name: editName.trim(), 
+        phone: editPhone.trim() 
+      });
+      
+      console.log('[profile.screen] API response:', updatedProfile);
+      
+      // Manually update the auth store with the returned profile
+      useAuthStore.setState({ profile: updatedProfile });
+      
       setEditModalVisible(false);
       setToastMessage('Cập nhật hồ sơ thành công');
       setToastType('success');
       setToastVisible(true);
     } catch (error) {
+      console.error('[profile.screen] updateProfile error:', error);
       setToastMessage('Lỗi khi cập nhật hồ sơ');
       setToastType('error');
       setToastVisible(true);

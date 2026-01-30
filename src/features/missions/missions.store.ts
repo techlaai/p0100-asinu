@@ -1,9 +1,9 @@
 ﻿import { create } from 'zustand';
-import { missionsApi } from './missions.api';
+import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
-import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { logError } from '../../lib/logger';
+import { missionsApi } from './missions.api';
 
 export type Mission = {
   id: string;
@@ -92,6 +92,12 @@ export const useMissionsStore = create<MissionsState>((set) => ({
       set({ missions, status: 'success', isStale: false, errorState: 'none' });
       await localCache.setCached(CACHE_KEYS.MISSIONS, '1', missions);
     } catch (error) {
+      // Ignore AbortError - it's expected when component unmounts
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Don't change state, just return silently
+        return;
+      }
+      
       if (usedCache) {
         set({ status: 'success', isStale: true, errorState: 'remote-failed' });
       } else {

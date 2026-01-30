@@ -150,28 +150,37 @@ const transformToBackendPayload = (logType: string, frontendPayload: BaseLogPayl
     occurred_at: frontendPayload.recordedAt || now,
     source: 'manual',
     note: frontendPayload.notes || null,
-    metadata: {},
+    metadata: {
+      tags: frontendPayload.tags || []
+    },
     data
   };
 };
 
 // Transform backend response to frontend format
 const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
-  return backendLogs.map(log => {
+  console.log('[logs.api] Transforming', backendLogs.length, 'logs from backend');
+  if (backendLogs.length > 0) {
+    console.log('[logs.api] First raw backend log:', JSON.stringify(backendLogs[0], null, 2));
+  }
+  
+  return backendLogs.map((log, idx) => {
     const detail = log.detail || {};
+    console.log(`[logs.api] Transform log ${idx} type=${log.log_type} detail=`, detail);
+    
     const baseEntry: LogEntry = {
       id: log.id,
       type: log.log_type === 'bp' ? 'blood-pressure' : log.log_type,
       recordedAt: log.occurred_at,
       notes: log.note,
-      tags: log.metadata?.tags || []
+      tags: Array.isArray(log.metadata?.tags) ? log.metadata.tags : []
     };
 
     switch (log.log_type) {
       case 'glucose':
         return { 
           ...baseEntry, 
-          value: detail.value,
+          value: typeof detail.value === 'string' ? parseFloat(detail.value) : detail.value,
           unit: detail.unit,
           context: detail.context,
           meal_tag: detail.meal_tag
@@ -179,20 +188,20 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
       case 'bp':
         return { 
           ...baseEntry, 
-          systolic: detail.systolic, 
-          diastolic: detail.diastolic,
-          pulse: detail.pulse,
+          systolic: typeof detail.systolic === 'string' ? parseInt(detail.systolic, 10) : detail.systolic, 
+          diastolic: typeof detail.diastolic === 'string' ? parseInt(detail.diastolic, 10) : detail.diastolic,
+          pulse: detail.pulse ? (typeof detail.pulse === 'string' ? parseInt(detail.pulse, 10) : detail.pulse) : null,
           unit: detail.unit
         };
       case 'weight':
         return { 
           ...baseEntry, 
-          weight_kg: detail.weight_kg, 
-          bodyfat_pct: detail.body_fat_percent,
-          muscle_pct: detail.muscle_percent
+          weight_kg: typeof detail.weight_kg === 'string' ? parseFloat(detail.weight_kg) : detail.weight_kg, 
+          bodyfat_pct: detail.body_fat_percent ? (typeof detail.body_fat_percent === 'string' ? parseFloat(detail.body_fat_percent) : detail.body_fat_percent) : null,
+          muscle_pct: detail.muscle_percent ? (typeof detail.muscle_percent === 'string' ? parseFloat(detail.muscle_percent) : detail.muscle_percent) : null
         };
       case 'water':
-        return { ...baseEntry, volume_ml: detail.volume_ml };
+        return { ...baseEntry, volume_ml: typeof detail.volume_ml === 'string' ? parseInt(detail.volume_ml, 10) : detail.volume_ml };
       case 'meal':
         return { 
           ...baseEntry, 

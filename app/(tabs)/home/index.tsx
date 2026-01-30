@@ -1,24 +1,24 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
+import { Button } from '../../../src/components/Button';
+import ChatModal from '../../../src/components/ChatModal';
+import { FloatingActionButton } from '../../../src/components/FloatingActionButton';
+import { OfflineBanner } from '../../../src/components/OfflineBanner';
+import { Screen } from '../../../src/components/Screen';
+import { StateError } from '../../../src/components/state/StateError';
+import { StateLoading } from '../../../src/components/state/StateLoading';
+import { useAuthStore } from '../../../src/features/auth/auth.store';
+import { useHomeViewModel } from '../../../src/features/home/home.vm';
+import { LogEntry } from '../../../src/features/logs/logs.store';
+import { colors, spacing, typography } from '../../../src/styles';
+import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
+import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
 import { H2HeroBanner } from '../../../src/ui-kit/H2HeroBanner';
 import { M1MetricCard } from '../../../src/ui-kit/M1MetricCard';
-import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
 import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
-import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
-import { colors, spacing, typography } from '../../../src/styles';
-import { Button } from '../../../src/components/Button';
-import { useHomeViewModel } from '../../../src/features/home/home.vm';
-import { FloatingActionButton } from '../../../src/components/FloatingActionButton';
-import { useAuthStore } from '../../../src/features/auth/auth.store';
-import { Screen } from '../../../src/components/Screen';
-import { LogEntry } from '../../../src/features/logs/logs.store';
-import { StateLoading } from '../../../src/components/state/StateLoading';
-import { StateError } from '../../../src/components/state/StateError';
-import { OfflineBanner } from '../../../src/components/OfflineBanner';
-import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
-import ChatModal from '../../../src/components/ChatModal';
 
 export default function HomeScreen() {
   const [isChatOpen, setChatOpen] = useState(false);
@@ -75,7 +75,7 @@ export default function HomeScreen() {
         <View style={styles.metricsRow}>
           <M1MetricCard
             title="Đường huyết"
-            value={quickMetrics.glucose}
+            value={quickMetrics.glucose ?? 0}
             unit="mg/dL"
             trend="flat"
             footnote="Ghi trước bữa sáng"
@@ -85,7 +85,7 @@ export default function HomeScreen() {
           />
           <M1MetricCard
             title="Huyết áp"
-            value={quickMetrics.bloodPressure}
+            value={quickMetrics.bloodPressure ?? 0}
             unit="mmHg"
             trend="down"
             accentColor={colors.warning}
@@ -152,9 +152,13 @@ export default function HomeScreen() {
           <View key={log.id} style={styles.logRow}>
             <Text style={styles.logType}>{log.type}</Text>
             <Text style={styles.logValue}>
-              {log.type === 'glucose' && log.value}
-              {log.type === 'blood-pressure' && `${log.systolic}/${log.diastolic}`}
-              {log.type === 'medication' && log.medication}
+              {log.type === 'glucose' && (log.value ? `${log.value} mg/dL` : 'Chưa có dữ liệu')}
+              {log.type === 'blood-pressure' && (log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} mmHg` : 'Chưa có dữ liệu')}
+              {log.type === 'weight' && (log.weight_kg ? `${log.weight_kg} kg` : 'Chưa có dữ liệu')}
+              {log.type === 'water' && (log.volume_ml ? `${log.volume_ml} ml` : 'Chưa có dữ liệu')}
+              {log.type === 'medication' && (log.medication || 'Chưa có dữ liệu')}
+              {log.type === 'meal' && (log.title || 'Chưa có dữ liệu')}
+              {log.type === 'insulin' && (log.insulin_type ? `${log.dose_units} U` : 'Chưa có dữ liệu')}
             </Text>
           </View>
         ))}

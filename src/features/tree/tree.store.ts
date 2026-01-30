@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { treeApi } from './tree.api';
+import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
-import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { logError } from '../../lib/logger';
+import { treeApi } from './tree.api';
 
 export type TreeSummary = {
   score: number;
@@ -74,6 +74,12 @@ export const useTreeStore = create<TreeState>((set) => ({
       set({ summary, history, status: 'success', isStale: false, errorState: 'none' });
       await localCache.setCached(CACHE_KEYS.TREE, '1', { summary, history });
     } catch (error) {
+      // Ignore AbortError - it's expected when component unmounts
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Don't change state, just return silently
+        return;
+      }
+      
       if (usedCache) {
         set({ status: 'success', isStale: true, errorState: 'remote-failed' });
       } else {

@@ -1,5 +1,6 @@
 ﻿import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { tokenStore } from '../../../lib/tokenStore';
 import { useSession } from '../../../providers/SessionProvider';
 import { PulsePopup } from '../components/PulsePopup';
 import { useCarePulseStore } from '../store/carePulse.store';
@@ -56,7 +57,15 @@ export const CarePulseProvider = ({ children }: Props) => {
   }, [recordPopupShown]);
 
   const runScheduler = useCallback(async () => {
+    // Don't run scheduler if not ready or no token available
     if (!hydrated || !sessionReady) return;
+    
+    const token = tokenStore.getToken();
+    if (!token) {
+      console.log('[CarePulse] Skipping scheduler - no auth token');
+      return;
+    }
+    
     try {
       await sendAppOpened();
     } catch {

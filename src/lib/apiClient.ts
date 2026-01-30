@@ -60,6 +60,8 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {})
   };
+  
+  console.log('[apiClient]', { url, method, hasToken: !!token, token: token ? `${token.substring(0, 20)}...` : 'NO_TOKEN' });
 
   const attempts = options.retry?.attempts ?? 1;
   const initialDelay = options.retry?.initialDelayMs ?? 400;
@@ -106,14 +108,24 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
       return (await response.json()) as T;
     } catch (error) {
       lastError = error;
-      const isTimeout = error instanceof Error && error.name === 'AbortError';
+      const isAbortError = error instanceof Error && error.name === 'AbortError';
+      const isTimeout = isAbortError;
+      
+      // Don't log AbortError - it's expected when request is cancelled
+      if (!isAbortError) {
+        if (shouldRetry(method, error) && attempt < attempts && !isTimeout) {
+          const delay = initialDelay * Math.pow(factor, attempt - 1);
+          logWarn('api retry after error', { url, method, attempt, delay, error: (error as Error)?.message });
+        } else {
+          logError(error, { url, method, attempt });
+        }
+      }
+      
       if (shouldRetry(method, error) && attempt < attempts && !isTimeout) {
         const delay = initialDelay * Math.pow(factor, attempt - 1);
-        logWarn('api retry after error', { url, method, attempt, delay, error: (error as Error)?.message });
         await sleep(delay);
         continue;
       }
-      logError(error, { url, method, attempt });
       throw error;
     }
   }

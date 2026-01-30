@@ -79,40 +79,74 @@ export const useCarePulseStore = create<CarePulseStore>()(
         }
       },
       recordPopupShown: async () => {
+        const token = tokenStore.getToken();
+        if (!token) {
+          console.warn('CarePulse: No auth token available, skipping popup shown event');
+          return;
+        }
+        
         const sessionId = createSessionId();
         set({ popupSessionId: sessionId });
-        const response = await sendCarePulseEvent({
-          eventType: 'POPUP_SHOWN',
-          source: 'scheduler',
-          uiSessionId: sessionId
-        });
-        if (response?.state) {
-          set({ engineState: response.state });
+        try {
+          const response = await sendCarePulseEvent({
+            eventType: 'POPUP_SHOWN',
+            source: 'scheduler',
+            uiSessionId: sessionId
+          });
+          if (response?.state) {
+            set({ engineState: response.state });
+          }
+        } catch (error) {
+          console.warn('CarePulse: Failed to record popup shown:', error);
         }
       },
       recordPopupDismiss: async () => {
+        const token = tokenStore.getToken();
+        if (!token) {
+          console.warn('CarePulse: No auth token available, skipping popup dismiss event');
+          set({ popupSessionId: null });
+          return;
+        }
+        
         const sessionId = get().popupSessionId || createSessionId();
-        const response = await sendCarePulseEvent({
-          eventType: 'POPUP_DISMISSED',
-          source: 'scheduler',
-          uiSessionId: sessionId
-        });
-        set({ popupSessionId: null });
-        if (response?.state) {
-          set({ engineState: response.state });
+        try {
+          const response = await sendCarePulseEvent({
+            eventType: 'POPUP_DISMISSED',
+            source: 'scheduler',
+            uiSessionId: sessionId
+          });
+          set({ popupSessionId: null });
+          if (response?.state) {
+            set({ engineState: response.state });
+          }
+        } catch (error) {
+          set({ popupSessionId: null });
+          console.warn('CarePulse: Failed to record popup dismiss:', error);
         }
       },
       checkIn: async (status, _subStatus, triggerSource) => {
+        const token = tokenStore.getToken();
+        if (!token) {
+          console.warn('CarePulse: No auth token available, skipping check-in');
+          set({ popupSessionId: null });
+          return;
+        }
+        
         const sessionId = triggerSource === 'POPUP' ? get().popupSessionId || createSessionId() : createSessionId();
-        const response = await sendCarePulseEvent({
-          eventType: 'CHECK_IN',
-          source: resolveSource(triggerSource),
-          uiSessionId: sessionId,
-          selfReport: status
-        });
-        set({ popupSessionId: null });
-        if (response?.state) {
-          set({ engineState: response.state });
+        try {
+          const response = await sendCarePulseEvent({
+            eventType: 'CHECK_IN',
+            source: resolveSource(triggerSource),
+            uiSessionId: sessionId,
+            selfReport: status
+          });
+          set({ popupSessionId: null });
+          if (response?.state) {
+            set({ engineState: response.state });
+          }
+        } catch (error) {
+          set({ popupSessionId: null });
+          console.warn('CarePulse: Failed to check in:', error);
         }
       }
     }),
