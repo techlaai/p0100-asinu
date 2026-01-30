@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../../src/components/Button';
+import { CareCircleNotificationBadge } from '../../../src/components/CareCircleNotificationBadge';
 import { Screen } from '../../../src/components/Screen';
 import { Toast } from '../../../src/components/Toast';
 import { authApi } from '../../../src/features/auth/auth.api';
@@ -145,6 +146,16 @@ export default function ProfileScreen() {
           <Text style={[styles.cardStatus, !hasProfile && styles.cardStatusMuted]}>{statusText}</Text>
         </View>
 
+        
+        {/* Care Circle Notification Badge */}
+        <CareCircleNotificationBadge />
+        
+        <Button 
+          label="Vòng kết nối" 
+          variant="secondary" 
+          onPress={() => router.push('/care-circle')} 
+          style={styles.optionButton}
+        />
         <H1SectionHeader title="Tùy chọn" />
         <Button label="Mở cài đặt" variant="warning" onPress={() => router.push('/settings')} />
         <Button
@@ -248,6 +259,9 @@ const styles = StyleSheet.create({
   },
   cardStatusMuted: {
     color: colors.textSecondary
+  },
+  optionButton: {
+    marginBottom: spacing.sm
   },
   modalOverlay: {
     flex: 1,
