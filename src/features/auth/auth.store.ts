@@ -40,6 +40,7 @@ export const useAuthStore = create<AuthState>()(
       setHydrated: (value: boolean) => set({ hydrated: value }),
 
       async bootstrap() {
+        console.log('[auth.store] ========== BOOTSTRAP CALLED ==========');
         set({ loading: true, error: undefined });
         console.log('[auth.store] bootstrap started');
 
@@ -123,10 +124,22 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await authService.submitPhoneAuth({ phone });
           const token = response.token || null;
-          const profile = response.profile || null;
           if (token) {
             await tokenStore.setToken(token);
           }
+
+          // Always fetch full profile from API, don't rely on response data
+          let profile: Profile | null = null;
+          try {
+            console.log('[auth.store] Phone login - fetching fresh profile from API...');
+            profile = await authApi.fetchProfile();
+            console.log('[auth.store] Phone login - Fresh profile fetched:', profile);
+          } catch (err) {
+            console.warn('[auth.store] Phone login - Failed to fetch profile:', err);
+            // Fallback to response profile if available
+            profile = response.profile || null;
+          }
+
           set({ profile, token, loading: false });
         } catch (error) {
           console.log('[auth.store] phone login failed:', error);
@@ -144,10 +157,22 @@ export const useAuthStore = create<AuthState>()(
             rawProfile: {}
           });
           const token = response.token || null;
-          const profile = response.profile || null;
           if (token) {
             await tokenStore.setToken(token);
           }
+
+          // Always fetch full profile from API, don't rely on response data
+          let profile: Profile | null = null;
+          try {
+            console.log('[auth.store] Social login - fetching fresh profile from API...');
+            profile = await authApi.fetchProfile();
+            console.log('[auth.store] Social login - Fresh profile fetched:', profile);
+          } catch (err) {
+            console.warn('[auth.store] Social login - Failed to fetch profile:', err);
+            // Fallback to response profile if available
+            profile = response.profile || null;
+          }
+
           set({ profile, token, loading: false });
         } catch (error) {
           console.log('[auth.store] social login failed:', error);
@@ -211,6 +236,7 @@ export const useAuthStore = create<AuthState>()(
         token: state.token
       }),
       onRehydrateStorage: () => (state) => {
+        console.log('[auth.store] onRehydrateStorage called - state:', state);
         if (state) {
           state.setHydrated(true);
         }

@@ -15,8 +15,10 @@ export const SessionProvider = ({ children }: Props) => {
   const hydrated = useAuthStore((state) => state.hydrated);
 
   useEffect(() => {
+    console.log('[SessionProvider] useEffect triggered - hydrated:', hydrated, 'loading:', loading);
     // Only bootstrap after store is hydrated
     if (hydrated) {
+      console.log('[SessionProvider] Calling bootstrap()');
       bootstrap();
     }
   }, [bootstrap, hydrated]);
