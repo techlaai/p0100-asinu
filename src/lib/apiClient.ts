@@ -61,7 +61,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
     ...(options.headers || {})
   };
   
-  console.log('[apiClient]', { url, method, hasToken: !!token, token: token ? `${token.substring(0, 20)}...` : 'NO_TOKEN' });
+  console.log('[apiClient]', { url, method, hasToken: !!token, token: token ? `${token.substring(0, 20)}...` : 'NO_TOKEN', bodyKeys: options.body ? Object.keys(options.body) : 'NO_BODY' });
 
   const attempts = options.retry?.attempts ?? 1;
   const initialDelay = options.retry?.initialDelayMs ?? 400;
@@ -97,7 +97,12 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
         } catch {
           errorData = { error: errorText || `Request failed: ${response.status}` };
         }
-        logError(new Error(errorData.error || errorText || `Request failed: ${response.status}`), { url, method, status: response.status });
+        logError(new Error(errorData.error || errorText || `Request failed: ${response.status}`), { 
+          url, 
+          method, 
+          status: response.status,
+          details: errorData.details 
+        });
         throw new Error(errorData.error || errorText || `Request failed: ${response.status}`);
       }
 

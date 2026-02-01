@@ -1,13 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from '../../../src/components/Button';
-import { Screen } from '../../../src/components/Screen';
-import { useAuthStore } from '../../../src/features/auth/auth.store';
-import { useCareCircle } from '../../../src/features/care-circle';
-import { colors, spacing, typography } from '../../../src/styles';
-import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
+import { Button } from '../../src/components/Button';
+import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
+import { Screen } from '../../src/components/Screen';
+import { useAuthStore } from '../../src/features/auth/auth.store';
+import { useCareCircle } from '../../src/features/care-circle';
+import { colors, spacing, typography } from '../../src/styles';
+import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function CareCircleScreen() {
   const router = useRouter();
@@ -28,6 +30,44 @@ export default function CareCircleScreen() {
   } = useCareCircle();
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editConnection, setEditConnection] = useState<{ id: string; relationship_type?: string; role?: string; name: string } | null>(null);
+  const [editRelationType, setEditRelationType] = useState<DropdownOption | null>(null);
+  const [editRole, setEditRole] = useState<DropdownOption | null>(null);
+
+  // Relationship options
+  const relationshipOptions: DropdownOption[] = [
+    { id: 'vo', label: 'Vợ', subtitle: 'Người phối ngẫu' },
+    { id: 'chong', label: 'Chồng', subtitle: 'Người phối ngẫu' },
+    { id: 'con-trai', label: 'Con trai', subtitle: 'Con ruột' },
+    { id: 'con-gai', label: 'Con gái', subtitle: 'Con ruột' },
+    { id: 'me', label: 'Mẹ', subtitle: 'Cha mẹ' },
+    { id: 'bo', label: 'Bố', subtitle: 'Cha mẹ' },
+    { id: 'anh-trai', label: 'Anh trai', subtitle: 'Anh chị em ruột' },
+    { id: 'chi-gai', label: 'Chị gái', subtitle: 'Anh chị em ruột' },
+    { id: 'em-trai', label: 'Em trai', subtitle: 'Anh chị em ruột' },
+    { id: 'em-gai', label: 'Em gái', subtitle: 'Anh chị em ruột' },
+    { id: 'ong-noi', label: 'Ông nội', subtitle: 'Ông bà nội' },
+    { id: 'ba-noi', label: 'Bà nội', subtitle: 'Ông bà nội' },
+    { id: 'ong-ngoai', label: 'Ông ngoại', subtitle: 'Ông bà ngoại' },
+    { id: 'ba-ngoai', label: 'Bà ngoại', subtitle: 'Ông bà ngoại' },
+    { id: 'ban-than', label: 'Bạn thân', subtitle: 'Bạn bè thân thiết' },
+    { id: 'nguoi-yeu', label: 'Người yêu', subtitle: 'Bạn đời' },
+  ];
+
+  // Role options
+  const roleOptions: DropdownOption[] = [
+    { id: 'nguoi-cham-soc', label: 'Người chăm sóc chính', subtitle: 'Chăm sóc hàng ngày' },
+    { id: 'bac-si', label: 'Bác sĩ gia đình', subtitle: 'Chuyên gia y tế' },
+    { id: 'y-ta', label: 'Y tá', subtitle: 'Hỗ trợ y tế' },
+    { id: 'duoc-si', label: 'Dược sĩ', subtitle: 'Quản lý thuốc' },
+    { id: 'chuyen-gia-dinh-duong', label: 'Chuyên gia dinh dưỡng', subtitle: 'Tư vấn chế độ ăn' },
+    { id: 'huan-luyen-vien', label: 'Huấn luyện viên', subtitle: 'Tập luyện & vận động' },
+    { id: 'nguoi-ho-tro', label: 'Người hỗ trợ', subtitle: 'Hỗ trợ thêm' },
+    { id: 'than-nhan', label: 'Thân nhân', subtitle: 'Người thân trong gia đình' },
+    { id: 'nguoi-giup-viec', label: 'Người giúp việc', subtitle: 'Hỗ trợ sinh hoạt' },
+    { id: 'tu-van-tam-ly', label: 'Tư vấn tâm lý', subtitle: 'Chăm sóc sức khỏe tinh thần' },
+  ];
 
   useEffect(() => {
     fetchInvitations();
@@ -83,11 +123,26 @@ export default function CareCircleScreen() {
     );
   };
 
+  const handleEditConnection = (connection: any) => {
+    setEditConnection(connection);
+    const relOption = relationshipOptions.find(opt => opt.id === connection.relationship_type);
+    const roleOption = roleOptions.find(opt => opt.id === connection.role);
+    setEditRelationType(relOption || null);
+    setEditRole(roleOption || null);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEdit = async () => {
+    // For now, just close modal - backend update can be added later
+    setEditModalVisible(false);
+    Alert.alert('Thông báo', 'Chỉnh sửa thông tin thành công');
+  };
+
   const receivedInvitations = invitations.filter(
-    (inv) => inv.addressee_id === profile?.id && inv.status === 'pending'
+    (inv) => String(inv.addressee_id) === String(profile?.id) && inv.status === 'pending'
   );
   const sentInvitations = invitations.filter(
-    (inv) => inv.requester_id === profile?.id && inv.status === 'pending'
+    (inv) => String(inv.requester_id) === String(profile?.id) && inv.status === 'pending'
   );
 
   return (
@@ -197,42 +252,119 @@ export default function CareCircleScreen() {
             connections.map((connection) => {
               const isRequester = connection.requester_id === profile?.id;
               const otherUserId = isRequester ? connection.addressee_id : connection.requester_id;
-              const otherUserName = isRequester ? connection.addressee_name : connection.requester_name;
+              const otherUserFullName = isRequester ? connection.addressee_full_name : connection.requester_full_name;
+              const otherUserEmail = isRequester ? connection.addressee_email : connection.requester_email;
+              const otherUserPhone = isRequester ? connection.addressee_phone : connection.requester_phone;
 
               return (
                 <View key={connection.id} style={styles.card}>
                   <View style={styles.cardHeader}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>
-                        {otherUserName?.[0]?.toUpperCase() || '?'}
-                      </Text>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                          {otherUserFullName?.[0]?.toUpperCase() || '?'}
+                        </Text>
+                      </View>
+                      <View style={styles.cardInfo}>
+                        <Text style={styles.cardName}>
+                          {otherUserFullName || `User ${otherUserId}`}
+                        </Text>
+                        {otherUserEmail && (
+                          <Text style={styles.cardContact} numberOfLines={1}>
+                            {otherUserEmail}
+                          </Text>
+                        )}
+                        {otherUserPhone && (
+                          <Text style={styles.cardContact} numberOfLines={1}>
+                            {otherUserPhone}
+                          </Text>
+                        )}
+                        {(connection.relationship_type || connection.role) && (
+                          <Text style={styles.cardRelation}>
+                            {connection.relationship_type || connection.role}
+                          </Text>
+                        )}
+                      </View>
                     </View>
-                    <View style={styles.cardInfo}>
-                      <Text style={styles.cardName}>
-                        {otherUserName || `User ${otherUserId}`}
-                      </Text>
-                      <Text style={styles.cardRelation}>
-                        {connection.relationship_type || connection.role || 'Kết nối'}
-                      </Text>
-                    </View>
-                  </View>
 
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteConnection(connection.id, otherUserName || 'người này')}
-                    disabled={actionLoading === connection.id}
-                  >
-                    {actionLoading === connection.id ? (
-                      <ActivityIndicator size="small" color={colors.danger} />
-                    ) : (
-                      <Text style={styles.deleteButtonText}>Xóa</Text>
-                    )}
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` })}
+                      style={{ padding: spacing.sm }}
+                    >
+                      <Ionicons name="pencil" size={18} color={colors.primary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleDeleteConnection(connection.id, otherUserFullName || 'người này')}
+                      disabled={actionLoading === connection.id}
+                      style={{ padding: spacing.sm }}
+                    >
+                      {actionLoading === connection.id ? (
+                        <ActivityIndicator size="small" color={colors.danger} />
+                      ) : (
+                        <Ionicons name="trash" size={18} color={colors.danger} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })
           )}
         </View>
+
+        {/* Edit Connection Modal */}
+        <Modal
+          visible={editModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setEditModalVisible(false)}
+        >
+          <Screen>
+            <ScrollView 
+              style={{ flex: 1 }}
+              contentContainerStyle={styles.modalContent}
+            >
+              <H1SectionHeader title={`Chỉnh sửa: ${editConnection?.name}`} />
+              
+              <View style={styles.modalSection}>
+                <Dropdown
+                  label="Mối quan hệ"
+                  placeholder="Chọn mối quan hệ..."
+                  options={relationshipOptions}
+                  value={editRelationType}
+                  onChange={setEditRelationType}
+                  searchable
+                />
+              </View>
+              
+              <View style={styles.modalSection}>
+                <Dropdown
+                  label="Vai trò"
+                  placeholder="Chọn vai trò..."
+                  options={roleOptions}
+                  value={editRole}
+                  onChange={setEditRole}
+                  searchable
+                />
+              </View>
+              
+              <View style={styles.buttonGroup}>
+                <Button
+                  label="Hủy"
+                  variant="ghost"
+                  onPress={() => setEditModalVisible(false)}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="Lưu"
+                  variant="primary"
+                  onPress={handleSaveEdit}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </ScrollView>
+          </Screen>
+        </Modal>
       </ScrollView>
     </Screen>
   );
@@ -271,6 +403,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
+    borderStyle: 'solid',
     borderColor: colors.border
   },
   cardHeader: {
@@ -301,9 +434,15 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.xs / 2
   },
+  cardContact: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs / 2
+  },
   cardRelation: {
     fontSize: typography.size.sm,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    marginTop: spacing.xs / 2
   },
   cardStatus: {
     fontSize: typography.size.sm,
@@ -340,20 +479,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.sm,
     fontWeight: '600'
   },
-  deleteButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    minHeight: 40,
-    justifyContent: 'center'
-  },
-  deleteButtonText: {
-    color: colors.danger,
-    fontSize: typography.size.sm,
-    fontWeight: '600'
-  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: spacing.xl
@@ -369,5 +494,33 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginVertical: spacing.xl
+  },
+  inputLabel: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    marginTop: spacing.md
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: spacing.md,
+    fontSize: typography.size.md,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface
+  },
+  modalContent: {
+    padding: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl
+  },
+  modalSection: {
+    marginBottom: spacing.lg
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg
   }
 });

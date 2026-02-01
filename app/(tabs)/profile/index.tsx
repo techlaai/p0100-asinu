@@ -1,9 +1,9 @@
-﻿import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+﻿import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../../src/components/Button';
-import { CareCircleNotificationBadge } from '../../../src/components/CareCircleNotificationBadge';
 import { Screen } from '../../../src/components/Screen';
 import { Toast } from '../../../src/components/Toast';
 import { authApi } from '../../../src/features/auth/auth.api';
@@ -16,11 +16,6 @@ import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
 export default function ProfileScreen() {
   const profile = useAuthStore((state) => state.profile);
   const router = useRouter();
-  
-  // Debug log
-  console.log('[profile.screen] profile:', profile);
-  console.log('[profile.screen] profile.name:', profile?.name);
-  console.log('[profile.screen] profile.phone:', profile?.phone);
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
 
@@ -40,12 +35,38 @@ export default function ProfileScreen() {
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   // Fetch data on mount
-  useEffect(() => {
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      fetchLogs(controller.signal);
+      fetchMissions(controller.signal);
+      return () => controller.abort();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []) // Empty deps - only run once on mount
+  );
+
+  const handleRefresh = useCallback(() => {
     const controller = new AbortController();
     fetchLogs(controller.signal);
     fetchMissions(controller.signal);
-    return () => controller.abort();
-  }, [fetchLogs, fetchMissions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - fetchLogs and fetchMissions are stable in Zustand
+
+  const handleAcceptInvitation = async (invitationId: string) => {
+    try {
+      // This handler is no longer needed
+    } catch (error) {
+      // Error handling
+    }
+  };
+
+  const handleRejectInvitation = async (invitationId: string) => {
+    try {
+      // This handler is no longer needed
+    } catch (error) {
+      // Error handling
+    }
+  };
 
   // Compute health overview from real data
   const healthOverview = useMemo(() => {
@@ -131,7 +152,17 @@ export default function ProfileScreen() {
         type={toastType}
         onHide={() => setToastVisible(false)}
       />
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: padTop }]}>
+      <ScrollView 
+        contentContainerStyle={[styles.container, { paddingTop: padTop }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={false}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <H1SectionHeader title="Tài khoản" />
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{identityTitle}</Text>
@@ -145,10 +176,6 @@ export default function ProfileScreen() {
           ) : null}
           <Text style={[styles.cardStatus, !hasProfile && styles.cardStatusMuted]}>{statusText}</Text>
         </View>
-
-        
-        {/* Care Circle Notification Badge */}
-        <CareCircleNotificationBadge />
         
         <Button 
           label="Vòng kết nối" 
@@ -156,6 +183,7 @@ export default function ProfileScreen() {
           onPress={() => router.push('/care-circle')} 
           style={styles.optionButton}
         />
+        
         <H1SectionHeader title="Tùy chọn" />
         <Button label="Mở cài đặt" variant="warning" onPress={() => router.push('/settings')} />
         <Button

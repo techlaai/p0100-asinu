@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
-import { colors, spacing, radius, typography } from '../styles';
+import { colors, radius, spacing, typography } from '../styles';
 
 type Props = {
   name: string;
@@ -14,7 +14,7 @@ type Props = {
 export const H2HeroBanner = ({ name, relationship, summary, action, supporters = [] }: Props) => {
   return (
     <LinearGradient
-      colors={[colors.warning, colors.primary]}
+      colors={[colors.primary + 'E0', colors.primary + 'F0']}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
       style={styles.container}

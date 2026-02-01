@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -20,7 +21,7 @@ export default function AsinuMascot({ onPress, size = 140 }: AsinuMascotProps) {
       <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={handlePress}>
         {imageError ? (
           <View style={[styles.fallbackCircle, { width: size * 0.85, height: size * 0.85, borderRadius: (size * 0.85) / 2 }]}>
-            <Text style={styles.fallbackEmoji}>🤖</Text>
+            <Ionicons name="chatbubble-ellipses" size={size * 0.5} color="#6366f1" />
           </View>
         ) : (
           <Image
@@ -54,9 +55,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5F1FF',
     borderWidth: 2,
     borderColor: '#C5DFFF'
-  },
-  fallbackEmoji: {
-    fontSize: 42
   },
   bubble: {
     paddingVertical: 10,

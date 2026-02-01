@@ -23,7 +23,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.asinu.lite",
-      "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png"
+      "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png",
+      "urlSchemes": [
+        "com.googleusercontent.apps.416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21"
+      ]
     },
     "android": {
       "package": "com.asinu.lite",

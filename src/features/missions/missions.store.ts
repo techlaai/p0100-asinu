@@ -18,10 +18,13 @@ export type Mission = {
 
 export type MissionRecord = {
   mission_key: string;
+  title?: string;        // Backend now provides title
+  description?: string;  // Backend now provides description
   status: 'active' | 'completed';
   progress: number;
   goal: number;
   updated_at: string;
+  id?: string;          // Backend now provides unique id
 };
 
 type ErrorState = 'none' | 'remote-failed' | 'no-data';
@@ -36,18 +39,51 @@ type MissionsState = {
 
 const missionMeta: Record<string, { title: string; description?: string }> = {
   DAILY_CHECKIN: {
-    title: 'Điểm danh Care Pulse',
-    description: 'Check-in sức khỏe mỗi ngày'
+    title: 'Điểm danh hàng ngày',
+    description: 'Mở app và kiểm tra sức khỏe hàng ngày'
+  },
+  log_glucose: {
+    title: 'Đo đường huyết',
+    description: 'Đo và ghi lại chỉ số đường huyết 2 lần/ngày'
+  },
+  log_bp: {
+    title: 'Đo huyết áp',
+    description: 'Theo dõi huyết áp định kỳ 2 lần/ngày'
+  },
+  log_weight: {
+    title: 'Cân nặng',
+    description: 'Cân nặng và ghi lại 1 lần/ngày'
+  },
+  log_water: {
+    title: 'Uống nước',
+    description: 'Uống đủ nước, mục tiêu 4 ly/ngày'
+  },
+  log_meal: {
+    title: 'Ghi chép bữa ăn',
+    description: 'Ghi chép bữa ăn, mục tiêu 3 bữa/ngày'
+  },
+  log_insulin: {
+    title: 'Ghi chép Insulin',
+    description: 'Ghi chép liều insulin đã tiêm'
+  },
+  log_medication: {
+    title: 'Ghi chép thuốc',
+    description: 'Ghi chép thuốc đã uống'
+  },
+  connect_caregiver: {
+    title: 'Kết nối người thân',
+    description: 'Mời người thân vào Vòng kết nối'
   }
 };
 
 const mapMission = (mission: MissionRecord): Mission => {
+  // Use backend-provided title/description, or fallback to local meta
   const meta = missionMeta[mission.mission_key] || { title: mission.mission_key };
   return {
-    id: mission.mission_key,
+    id: mission.id || mission.mission_key,  // Use backend id if available
     missionKey: mission.mission_key,
-    title: meta.title,
-    description: meta.description,
+    title: mission.title || meta.title,     // Prefer backend title
+    description: mission.description || meta.description,
     status: mission.status,
     progress: mission.progress,
     goal: mission.goal,
@@ -57,10 +93,50 @@ const mapMission = (mission: MissionRecord): Mission => {
 
 const fallbackMissions: Mission[] = [
   {
-    id: 'DAILY_CHECKIN',
-    missionKey: 'DAILY_CHECKIN',
-    title: 'Điểm danh Care Pulse',
-    description: 'Check-in sức khỏe mỗi ngày',
+    id: 'log_glucose',
+    missionKey: 'log_glucose',
+    title: 'Đo đường huyết',
+    description: 'Đo và ghi lại chỉ số đường huyết 2 lần/ngày',
+    status: 'active',
+    progress: 0,
+    goal: 2,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'log_bp',
+    missionKey: 'log_bp',
+    title: 'Đo huyết áp',
+    description: 'Theo dõi huyết áp định kỳ 2 lần/ngày',
+    status: 'active',
+    progress: 0,
+    goal: 2,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'log_water',
+    missionKey: 'log_water',
+    title: 'Uống nước',
+    description: 'Uống đủ nước, mục tiêu 4 ly/ngày',
+    status: 'active',
+    progress: 0,
+    goal: 4,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'log_meal',
+    missionKey: 'log_meal',
+    title: 'Ghi chép bữa ăn',
+    description: 'Ghi chép bữa ăn, mục tiêu 3 bữa/ngày',
+    status: 'active',
+    progress: 0,
+    goal: 3,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'daily_checkin',
+    missionKey: 'daily_checkin',
+    title: 'Điểm danh hàng ngày',
+    description: 'Mở app và kiểm tra sức khỏe hàng ngày',
     status: 'active',
     progress: 0,
     goal: 1,
@@ -88,7 +164,9 @@ export const useMissionsStore = create<MissionsState>((set) => ({
     }
     try {
       const missionRecords = await missionsApi.fetchMissions({ signal });
+      console.log('[missions] Raw backend response:', missionRecords);
       const missions = missionRecords.map(mapMission);
+      console.log('[missions] Mapped missions:', missions);
       set({ missions, status: 'success', isStale: false, errorState: 'none' });
       await localCache.setCached(CACHE_KEYS.MISSIONS, '1', missions);
     } catch (error) {

@@ -1,10 +1,10 @@
 ﻿import { useEffect, useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AiChatLayout, ChatBubble } from './AiChatLayout';
 import { chatApi } from '../features/chat/chat.api';
-import { colors, spacing, typography } from '../styles';
 import { navigation } from '../lib/navigation';
+import { colors, spacing, typography } from '../styles';
+import { AiChatLayout, ChatBubble } from './AiChatLayout';
 
 type ChatModalProps = {
   visible: boolean;
@@ -87,7 +87,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.handle} />
           <View style={styles.titleRow}>
-            <Text style={styles.title}>Asinu Chat</Text>
+            <Text style={styles.title}>Trò chuyện với Asinu</Text>
             <Pressable hitSlop={12} onPress={onClose}>
               <Text style={styles.closeLabel}>Đóng</Text>
             </Pressable>

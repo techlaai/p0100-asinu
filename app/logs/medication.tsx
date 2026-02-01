@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import { LoadingOverlay } from '../../src/components/LoadingOverlay';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
-import { Toast } from '../../src/components/Toast';
 import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { validateMedicationPayload } from '../../src/features/logs/logs.validation';
@@ -23,10 +23,9 @@ export default function MedicationLogScreen() {
   const [frequencyText, setFrequencyText] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const createMedication = useLogsStore((state) => state.createMedication);
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
@@ -58,16 +57,23 @@ export default function MedicationLogScreen() {
       return;
     }
     setErrors({});
+    setIsSaving(true);
     try {
       await createMedication(result.value);
-      setToastMessage('Đã lưu thành công!');
-      setToastType('success');
-      setShowToast(true);
-      setTimeout(() => router.back(), 1500);
+      setIsSaving(false);
+      // Show success message
+      Alert.alert(
+        'Thành công!',
+        'Ghi nhật ký thành công!',
+        [
+          {
+            text: 'OK'
+          }
+        ]
+      );
     } catch (error) {
-      setToastMessage('Lưu thất bại. Vui lòng thử lại!');
-      setToastType('error');
-      setShowToast(true);
+      setIsSaving(false);
+      Alert.alert('Lưu thất bại', 'Vui lòng thử lại!');
     }
   };
 
@@ -96,7 +102,7 @@ export default function MedicationLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <Toast visible={showToast} message={toastMessage} type={toastType} onHide={() => setShowToast(false)} />
+        <LoadingOverlay visible={isSaving} message="Đang ghi nhật ký..." />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -115,7 +121,7 @@ export default function MedicationLogScreen() {
               <TextInput label="Ghi chú" value={notes} onChangeText={setNotes} multiline />
               {errors.medication ? <Text style={styles.error}>{errors.medication}</Text> : null}
               {errors.dose ? <Text style={styles.error}>{errors.dose}</Text> : null}
-              <Button label="Lưu" onPress={handleSubmit} />
+              <Button label="Lưu" onPress={handleSubmit} disabled={isSaving} />
             </ScrollView>
           )}
         </KeyboardAvoidingView>

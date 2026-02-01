@@ -1,29 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text } from 'react-native';
+import { Animated, Dimensions, StyleSheet, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../styles';
 
 type ToastType = 'success' | 'error';
+type ToastPosition = 'top' | 'bottom' | 'center';
 
 type ToastProps = {
   visible: boolean;
   message: string;
   type?: ToastType;
   duration?: number;
+  position?: ToastPosition;
   onHide?: () => void;
 };
 
-export const Toast = ({ visible, message, type = 'success', duration = 2000, onHide }: ToastProps) => {
+export const Toast = ({ visible, message, type = 'success', duration = 2000, position = 'center', onHide }: ToastProps) => {
   const [isHidden, setIsHidden] = useState(!visible);
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-20)).current;
+  const scale = useRef(new Animated.Value(0.8)).current;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible) {
-      // Reset isHidden when visible becomes true
       setIsHidden(false);
-      // Reset animation values
       opacity.setValue(0);
-      translateY.setValue(-20);
+      scale.setValue(0.8);
       
       Animated.parallel([
         Animated.timing(opacity, {
@@ -31,9 +33,10 @@ export const Toast = ({ visible, message, type = 'success', duration = 2000, onH
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 300,
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
           useNativeDriver: true,
         }),
       ]).start();
@@ -45,8 +48,8 @@ export const Toast = ({ visible, message, type = 'success', duration = 2000, onH
             duration: 300,
             useNativeDriver: true,
           }),
-          Animated.timing(translateY, {
-            toValue: -20,
+          Animated.timing(scale, {
+            toValue: 0.8,
             duration: 300,
             useNativeDriver: true,
           }),
@@ -66,14 +69,39 @@ export const Toast = ({ visible, message, type = 'success', duration = 2000, onH
     return null;
   }
 
+  const getPositionStyle = () => {
+    const screenHeight = Dimensions.get('window').height;
+    
+    if (position === 'center') {
+      return {
+        top: screenHeight / 2 - 50,
+        left: spacing.lg,
+        right: spacing.lg,
+      };
+    } else if (position === 'bottom') {
+      return {
+        bottom: insets.bottom + spacing.xl,
+        left: spacing.lg,
+        right: spacing.lg,
+      };
+    } else {
+      return {
+        top: insets.top + spacing.xl,
+        left: spacing.lg,
+        right: spacing.lg,
+      };
+    }
+  };
+
   return (
     <Animated.View
       style={[
         styles.container,
         type === 'error' ? styles.errorContainer : styles.successContainer,
+        getPositionStyle(),
         {
           opacity,
-          transform: [{ translateY }],
+          transform: [{ scale }],
         },
       ]}
     >
@@ -85,18 +113,18 @@ export const Toast = ({ visible, message, type = 'success', duration = 2000, onH
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: spacing.xl,
-    left: spacing.lg,
-    right: spacing.lg,
-    borderRadius: 12,
-    padding: spacing.md,
+    borderRadius: 16,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
     zIndex: 9999,
+    minHeight: 60,
+    justifyContent: 'center',
   },
   successContainer: {
     backgroundColor: colors.success,
@@ -106,8 +134,9 @@ const styles = StyleSheet.create({
   },
   message: {
     color: '#FFFFFF',
-    fontSize: typography.size.md,
-    fontWeight: '600',
+    fontSize: typography.size.lg,
+    fontWeight: '700',
     textAlign: 'center',
+    lineHeight: 24,
   },
 });

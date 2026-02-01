@@ -10,7 +10,7 @@ import { Platform } from 'react-native';
 // Required for OAuth to work properly
 WebBrowser.maybeCompleteAuthSession();
 
-export type OAuthProvider = 'google' | 'apple' | 'zalo';
+export type OAuthProvider = 'google' | 'apple';
 
 export type OAuthResult = {
   type: 'success' | 'cancel' | 'error';
@@ -30,9 +30,9 @@ export type OAuthResult = {
  */
 const GOOGLE_CONFIG = {
   clientId: {
-    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
-    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
-    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || ''
+    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21.apps.googleusercontent.com',
+    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '416338225523-vs42boe39psg5k927thrhuq8doobb29h.apps.googleusercontent.com',
+    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '416338225523-e095rh2637h6fto5ia0gvnn8faeq96fd.apps.googleusercontent.com'
   },
   scopes: ['openid', 'profile', 'email'],
   authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -50,16 +50,7 @@ const APPLE_CONFIG = {
   // Apple uses Sign In with Apple native module on iOS
 };
 
-/**
- * Zalo OAuth Configuration
- */
-const ZALO_CONFIG = {
-  appId: process.env.EXPO_PUBLIC_ZALO_APP_ID || '',
-  scopes: ['id', 'name', 'picture'],
-  authorizationEndpoint: 'https://oauth.zaloapp.com/v4/permission',
-  tokenEndpoint: 'https://oauth.zaloapp.com/v4/access_token',
-  userInfoEndpoint: 'https://graph.zalo.me/v2.0/me'
-};
+
 
 /**
  * Get platform-specific Google Client ID
@@ -98,22 +89,12 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       throw new Error('Google Client ID not configured');
     }
 
-    // Use expo-auth-session promptAsync (not hook)
-    const AuthSession = require('expo-auth-session');
     const redirectUri = makeRedirectUri({
       scheme: 'asinu',
       path: 'auth/google'
     });
 
-    const authUrl = AuthSession.makeAuthRequest({
-      clientId,
-      scopes: GOOGLE_CONFIG.scopes,
-      redirectUri,
-      responseType: AuthSession.ResponseType.Token,
-      usePKCE: false,
-      state: `google_${Date.now()}`,
-      prompt: AuthSession.Prompt.SelectAccount
-    });
+    const state = `google_${Date.now()}`;
 
     // Build authorization URL
     const authUrlString = `${GOOGLE_CONFIG.authorizationEndpoint}?${new URLSearchParams({
@@ -121,7 +102,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       redirect_uri: redirectUri,
       response_type: 'token',
       scope: GOOGLE_CONFIG.scopes.join(' '),
-      state: authUrl.state || ''
+      state
     }).toString()}`;
 
     // Open browser for OAuth
@@ -235,107 +216,6 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
 }
 
 /**
- * Authenticate with Zalo
- */
-export async function authenticateWithZalo(): Promise<OAuthResult> {
-  try {
-    // Check if running in development mode with mock
-    if (__DEV__ && process.env.EXPO_PUBLIC_USE_MOCK_OAUTH === 'true') {
-      console.log('[oauth] Using mock Zalo authentication');
-      return {
-        type: 'success',
-        token: 'mock-zalo-token',
-        profile: {
-          email: `dev-${Date.now()}@zalo.me`,
-          name: 'Dev User (Zalo)',
-          sub: `zalo_dev_${Date.now()}`
-        }
-      };
-    }
-
-    const appId = ZALO_CONFIG.appId;
-    if (!appId) {
-      throw new Error('Zalo App ID not configured');
-    }
-
-    // Use WebBrowser for Zalo OAuth
-    const redirectUri = makeRedirectUri({
-      scheme: 'asinu',
-      path: 'auth/zalo'
-    });
-
-    const state = `zalo_${Date.now()}`;
-
-    // Build Zalo authorization URL
-    const authUrl = `${ZALO_CONFIG.authorizationEndpoint}?${new URLSearchParams({
-      app_id: appId,
-      redirect_uri: redirectUri,
-      state
-    }).toString()}`;
-
-    // Open browser for OAuth
-    const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-
-    if (result.type === 'success' && result.url) {
-      // Parse code from redirect URL
-      const url = new URL(result.url);
-      const code = url.searchParams.get('code');
-
-      if (!code) {
-        throw new Error('No authorization code received');
-      }
-
-      // Exchange code for access token
-      const tokenResponse = await fetch(ZALO_CONFIG.tokenEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          app_id: appId,
-          code,
-          grant_type: 'authorization_code'
-        }).toString()
-      });
-
-      const tokenData = await tokenResponse.json();
-      const accessToken = tokenData.access_token;
-
-      if (!accessToken) {
-        throw new Error('Failed to get access token from Zalo');
-      }
-
-      // Fetch user profile
-      const profileResponse = await fetch(
-        `${ZALO_CONFIG.userInfoEndpoint}?access_token=${accessToken}&fields=id,name,picture`
-      );
-      const profile = await profileResponse.json();
-
-      return {
-        type: 'success',
-        token: accessToken,
-        profile: {
-          email: undefined, // Zalo doesn't always provide email
-          name: profile.name,
-          picture: profile.picture?.data?.url,
-          sub: profile.id
-        }
-      };
-    }
-
-    if (result.type === 'cancel') {
-      return { type: 'cancel' };
-    }
-
-    return { type: 'error', error: 'Zalo authentication failed' };
-  } catch (error) {
-    console.error('[oauth] Zalo authentication error:', error);
-    return {
-      type: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-}
-
-/**
  * Main OAuth authentication function
  */
 export async function authenticateWithProvider(provider: OAuthProvider): Promise<OAuthResult> {
@@ -346,8 +226,6 @@ export async function authenticateWithProvider(provider: OAuthProvider): Promise
       return authenticateWithGoogle();
     case 'apple':
       return authenticateWithApple();
-    case 'zalo':
-      return authenticateWithZalo();
     default:
       return {
         type: 'error',

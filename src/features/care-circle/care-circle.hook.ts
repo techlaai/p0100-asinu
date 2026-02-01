@@ -12,8 +12,16 @@ export function useCareCircle() {
     try {
       setLoading(true);
       setError(null);
-      const data = await careCircleApi.getInvitations();
-      setInvitations(data);
+      // Fetch both received and sent invitations
+      const [received, sent] = await Promise.all([
+        careCircleApi.getInvitations('received'),
+        careCircleApi.getInvitations('sent')
+      ]);
+      console.log('[care-circle] Fetched received invitations:', received);
+      console.log('[care-circle] Fetched sent invitations:', sent);
+      // Combine and deduplicate by id
+      const allInvitations = [...received, ...sent.filter(s => !received.find(r => r.id === s.id))];
+      setInvitations(allInvitations);
     } catch (err: any) {
       console.error('[care-circle] fetchInvitations error:', err);
       setError(err.message || 'Failed to fetch invitations');
@@ -38,9 +46,11 @@ export function useCareCircle() {
 
   const createInvitation = useCallback(async (payload: CreateInvitationPayload) => {
     try {
+      console.log('[care-circle] createInvitation - calling API with payload:', payload);
       setLoading(true);
       setError(null);
       const invitation = await careCircleApi.createInvitation(payload);
+      console.log('[care-circle] createInvitation - success, received:', invitation);
       setInvitations((prev) => [invitation, ...prev]);
       return invitation;
     } catch (err: any) {

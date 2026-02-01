@@ -1,10 +1,13 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
+import { Toast } from '../../src/components/Toast';
+import { authApi } from '../../src/features/auth/auth.api';
+import { getPasswordStrength, validateEmail, validatePassword, validatePhone } from '../../src/lib/validation';
 import { colors, spacing, typography } from '../../src/styles';
 
 export default function RegisterScreen() {
@@ -14,7 +17,13 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [isAgreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [emailError, setEmailError] = useState<string | undefined>();
+  const [phoneError, setPhoneError] = useState<string | undefined>();
+  const [passwordError, setPasswordError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -22,21 +31,75 @@ export default function RegisterScreen() {
     router.push({ pathname: '/legal/content', params: { type } });
   };
 
+  const handleEmailBlur = () => {
+    const error = validateEmail(email);
+    setEmailError(error || undefined);
+  };
+
+  const handlePhoneBlur = () => {
+    const error = validatePhone(phone);
+    setPhoneError(error || undefined);
+  };
+
+  const handlePasswordBlur = () => {
+    const error = validatePassword(password);
+    setPasswordError(error || undefined);
+  };
+
+  const getPasswordStrengthColor = () => {
+    if (!password) return colors.textSecondary;
+    const { strength } = getPasswordStrength(password);
+    if (strength === 'weak') return '#ef4444';
+    if (strength === 'medium') return '#f59e0b';
+    return '#22c55e';
+  };
+
+  const getPasswordStrengthText = () => {
+    if (!password) return '';
+    const { strength } = getPasswordStrength(password);
+    if (strength === 'weak') return 'Yếu';
+    if (strength === 'medium') return 'Trung bình';
+    return 'Mạnh';
+  };
+
   const handleSubmit = async () => {
-    if (!name.trim() || !phone.trim()) {
-      setError('Vui lòng nhập họ tên và số điện thoại');
+    // Validate
+    const emailErr = validateEmail(email);
+    const phoneErr = validatePhone(phone);
+    const passwordErr = validatePassword(password);
+    
+    setEmailError(emailErr || undefined);
+    setPhoneError(phoneErr || undefined);
+    setPasswordError(passwordErr || undefined);
+    
+    if (emailErr || phoneErr || passwordErr) {
+      setError('Vui lòng kiểm tra lại thông tin');
       return;
     }
+    
     if (!isAgreed) {
       setError('Vui lòng đồng ý Điều khoản & Chính sách');
       return;
     }
+    
     setError(undefined);
     setLoading(true);
     try {
-      router.replace('/login');
-    } catch (err) {
-      setError((err as Error).message);
+      await authApi.register({ 
+        email: email.trim(), 
+        phone_number: phone.trim(),
+        password: password.trim(),
+        full_name: name.trim() || undefined
+      });
+      setToastMessage('Đăng ký thành công! Vui lòng đăng nhập.');
+      setToastType('success');
+      setShowToast(true);
+      setTimeout(() => router.replace('/login'), 1500);
+    } catch (err: any) {
+      setError(err.message || 'Đăng ký thất bại');
+      setToastMessage(err.message || 'Đăng ký thất bại');
+      setToastType('error');
+      setShowToast(true);
     } finally {
       setLoading(false);
     }
@@ -44,13 +107,76 @@ export default function RegisterScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
+      <Toast 
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
+        position="center"
+        onHide={() => setShowToast(false)}
+      />
+      
       <Text style={styles.title}>Tạo tài khoản</Text>
       <Text style={styles.subtitle}>Nhập thông tin cơ bản để bắt đầu</Text>
+      
       <View style={styles.form}>
-        <TextInput label="Họ tên" value={name} onChangeText={setName} />
-        <TextInput label="Số điện thoại" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+84..." />
-        <TextInput label="Email (tùy chọn)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-        <TextInput label="Mật khẩu (tùy chọn)" value={password} onChangeText={setPassword} secureTextEntry />
+        <View>
+          <TextInput 
+            label="Email *" 
+            value={email} 
+            onChangeText={(text) => {
+              setEmail(text);
+              setEmailError(undefined);
+            }}
+            onBlur={handleEmailBlur}
+            autoCapitalize="none" 
+            keyboardType="email-address" 
+            placeholder="example@email.com"
+          />
+          {emailError && <Text style={styles.fieldError}>{emailError}</Text>}
+        </View>
+        
+        <View>
+          <TextInput 
+            label="Số điện thoại *" 
+            value={phone} 
+            onChangeText={(text) => {
+              setPhone(text);
+              setPhoneError(undefined);
+            }}
+            onBlur={handlePhoneBlur}
+            keyboardType="phone-pad" 
+            placeholder="0912345678 hoặc +84912345678" 
+          />
+          {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
+        </View>
+        
+        <View>
+          <TextInput 
+            label="Mật khẩu *" 
+            value={password} 
+            onChangeText={(text) => {
+              setPassword(text);
+              setPasswordError(undefined);
+            }}
+            onBlur={handlePasswordBlur}
+            secureTextEntry 
+            placeholder="Ít nhất 8 ký tự"
+          />
+          {passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
+          {password && !passwordError && (
+            <Text style={[styles.strengthText, { color: getPasswordStrengthColor() }]}>
+              Độ mạnh: {getPasswordStrengthText()}
+            </Text>
+          )}
+        </View>
+        
+        <TextInput 
+          label="Họ tên (tùy chọn)" 
+          value={name} 
+          onChangeText={setName} 
+          placeholder="Nguyễn Văn A" 
+        />
+        
         <View style={styles.checkboxRow}>
           <Pressable style={styles.checkboxToggle} onPress={() => setAgreed(!isAgreed)}>
             <Ionicons
@@ -68,14 +194,23 @@ export default function RegisterScreen() {
             <Text style={[styles.checkboxLabel, styles.linkItalic]}>Chính sách riêng tư</Text>
           </Pressable>
         </View>
+        
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        
         <Button
           label={loading ? 'Đang xử lý...' : 'Đăng ký'}
           onPress={handleSubmit}
           disabled={!isAgreed || loading}
           style={{ opacity: isAgreed ? 1 : 0.5 }}
         />
-        <Button label="Đã có tài khoản? Đăng nhập" variant="ghost" onPress={() => router.replace('/login')} disabled={loading} />
+        
+        {/* Link to Login */}
+        <View style={styles.loginLinkContainer}>
+          <Text style={styles.loginLinkText}>Đã có tài khoản? </Text>
+          <Pressable onPress={() => router.replace('/login')}>
+            <Text style={styles.loginLinkButton}>Đăng nhập</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -101,6 +236,16 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md
   },
+  fieldError: {
+    color: colors.danger,
+    fontSize: typography.size.sm,
+    marginTop: spacing.xs / 2,
+  },
+  strengthText: {
+    fontSize: typography.size.sm,
+    marginTop: spacing.xs / 2,
+    fontWeight: '600',
+  },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -122,5 +267,20 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.danger
+  },
+  loginLinkContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  loginLinkText: {
+    fontSize: typography.size.md,
+    color: colors.textSecondary,
+  },
+  loginLinkButton: {
+    fontSize: typography.size.md,
+    color: colors.primary,
+    fontWeight: '700',
   }
 });

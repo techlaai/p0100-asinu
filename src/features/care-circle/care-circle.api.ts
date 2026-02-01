@@ -15,6 +15,12 @@ export type CareCircleInvitation = {
   };
   requester_name?: string;
   addressee_name?: string;
+  requester_full_name?: string;
+  addressee_full_name?: string;
+  requester_email?: string;
+  addressee_email?: string;
+  requester_phone?: string;
+  addressee_phone?: string;
   created_at: string;
   updated_at: string;
 };
@@ -33,6 +39,12 @@ export type CareCircleConnection = {
   };
   requester_name?: string;
   addressee_name?: string;
+  requester_full_name?: string;
+  addressee_full_name?: string;
+  requester_email?: string;
+  addressee_email?: string;
+  requester_phone?: string;
+  addressee_phone?: string;
   created_at: string;
   updated_at: string;
 };
@@ -51,10 +63,12 @@ export type CreateInvitationPayload = {
 export const careCircleApi = {
   // Create invitation
   async createInvitation(payload: CreateInvitationPayload) {
+    console.log('[careCircleApi] createInvitation called with payload:', payload);
     const response = await apiClient<{ ok: boolean; invitation: CareCircleInvitation }>(
       '/api/care-circle/invitations',
       { method: 'POST', body: payload }
     );
+    console.log('[careCircleApi] createInvitation response:', response);
     return response.invitation;
   },
 
@@ -100,5 +114,19 @@ export const careCircleApi = {
       { method: 'DELETE' }
     );
     return response;
+  },
+
+  // Search users for invitation
+  async searchUsers(query: string) {
+    const response = await apiClient<{ 
+      ok: boolean; 
+      users: Array<{
+        id: string;
+        name: string;
+        email: string | null;
+        phone: string | null;
+      }>;
+    }>(`/api/auth/users/search?q=${encodeURIComponent(query)}`);
+    return response.users;
   }
 };

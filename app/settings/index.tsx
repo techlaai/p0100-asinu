@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { colors, spacing, typography } from '../../src/styles';
+import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function SettingsScreen() {
   const logout = useAuthStore((state) => state.logout);
@@ -19,25 +19,6 @@ export default function SettingsScreen() {
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
-  };
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Xác nhận xóa?',
-      'Hành động này không thể hoàn tác. Mọi dữ liệu sức khỏe sẽ bị xóa vĩnh viễn.',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Yêu cầu đã được ghi nhận. Hệ thống sẽ xử lý trong 24h.'
-            );
-          }
-        }
-      ]
-    );
   };
 
   return (
@@ -60,14 +41,7 @@ export default function SettingsScreen() {
         </View>
 
         <Button label="Đăng xuất" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
-        <Button
-          label="Xóa tài khoản"
-          variant="ghost"
-          onPress={handleDeleteAccount}
-          style={{ marginTop: spacing.md, borderColor: colors.danger }}
-          textStyle={{ color: colors.danger }}
-        />
-        <Text style={styles.versionText}>v0.9.1 (Build: Preview)</Text>
+        <Text style={styles.versionText}>v0.9.1 (Bản thử nghiệm)</Text>
       </ScrollView>
     </Screen>
   );

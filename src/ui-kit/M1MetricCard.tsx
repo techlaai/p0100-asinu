@@ -1,6 +1,7 @@
-import { ReactNode } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, typography } from '../styles';
 
 export type M1MetricCardProps = {
@@ -17,9 +18,9 @@ export type M1MetricCardProps = {
 };
 
 const trendCopy = {
-  up: 'Higher than usual',
-  down: 'Lower than usual',
-  flat: 'On track'
+  up: 'Cao hơn bình thường',
+  down: 'Thấp hơn bình thường',
+  flat: 'Ổn định'
 };
 
 export const M1MetricCard = ({
@@ -39,7 +40,7 @@ export const M1MetricCard = ({
   return (
     <Container style={[styles.card, { borderColor: accentColor }]} onPress={onPress}>
       <LinearGradient colors={accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.accent}>
-        {icon || <Text style={styles.accentLabel}>◎</Text>}
+        {icon || <Ionicons name="pulse" size={20} color={colors.surface} />}
       </LinearGradient>
       <Text style={styles.title}>{title}</Text>
       <View style={styles.valueRow}>
@@ -63,6 +64,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: 20,
     borderWidth: 1,
+    borderStyle: 'solid',
     backgroundColor: colors.surface,
     gap: spacing.sm
   },

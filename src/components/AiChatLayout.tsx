@@ -42,7 +42,7 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
             </View>
           </View>
         )}
-        ListFooterComponent={isTyping ? <Text style={styles.typing}>Assistant is typing…</Text> : null}
+        ListFooterComponent={isTyping ? <Text style={styles.typing}>Asinu đang soạn tin...</Text> : null}
       />
       <View style={styles.composer}>
         <TextInput

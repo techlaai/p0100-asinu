@@ -57,7 +57,7 @@ export const validateWeightPayload = (
   if (bodyfat) {
     const bfNum = requireNumber(bodyfat);
     if (bfNum === null || !isHalfStepNumber(bfNum)) {
-      return { ok: false, errors: { bodyfat: 'Body fat phải là bội số 0.5.' } };
+      return { ok: false, errors: { bodyfat: 'Mỡ cơ thể phải là bội số 0.5.' } };
     }
     bf = bfNum;
   }

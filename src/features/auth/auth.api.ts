@@ -2,8 +2,15 @@ import { apiClient } from '../../lib/apiClient';
 import { Profile } from './auth.store';
 
 export type LoginPayload = {
-  email: string;
+  identifier: string; // Email or phone
   password: string;
+};
+
+export type RegisterPayload = {
+  email: string;
+  phone_number: string;
+  password: string;
+  full_name?: string;
 };
 
 export type UpdateProfilePayload = {
@@ -33,7 +40,7 @@ export const authApi = {
   login(payload: LoginPayload) {
     return apiClient<LoginResponse>('/api/auth/email/login', { method: 'POST', body: payload });
   },
-  register(payload: LoginPayload) {
+  register(payload: RegisterPayload) {
     return apiClient<LoginResponse>('/api/auth/email/register', { method: 'POST', body: payload });
   },
   verify() {
@@ -53,6 +60,12 @@ export const authApi = {
   },
   updateProfile(payload: UpdateProfilePayload) {
     return apiClient<ProfileResponse>('/api/mobile/profile', { method: 'PUT', body: payload }).then(res => res.profile);
+  },
+  updatePushToken(pushToken: string) {
+    return apiClient<{ ok: boolean; message: string }>('/api/mobile/profile/push-token', { 
+      method: 'POST', 
+      body: { push_token: pushToken } 
+    });
   },
   logout() {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/auth/logout', { method: 'POST' });

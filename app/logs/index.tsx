@@ -1,17 +1,17 @@
-import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { useCallback, useEffect } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 import { ListItem } from '../../src/components/ListItem';
+import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { Screen } from '../../src/components/Screen';
+import { StateError } from '../../src/components/state/StateError';
+import { StateLoading } from '../../src/components/state/StateLoading';
+import { useLogsStore } from '../../src/features/logs/logs.store';
 import { spacing } from '../../src/styles';
 import { colors } from '../../src/styles/theme';
-import { useLogsStore } from '../../src/features/logs/logs.store';
-import { StateLoading } from '../../src/components/state/StateLoading';
-import { StateError } from '../../src/components/state/StateError';
-import { OfflineBanner } from '../../src/components/OfflineBanner';
+import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function LogsIndexScreen() {
   const router = useRouter();
@@ -29,6 +29,11 @@ export default function LogsIndexScreen() {
       return () => controller.abort();
     }
   }, [status, fetchLogs]);
+
+  const handleRefresh = useCallback(() => {
+    const controller = new AbortController();
+    fetchLogs(controller.signal);
+  }, [fetchLogs]);
 
   return (
     <>
@@ -51,7 +56,17 @@ export default function LogsIndexScreen() {
         {isStale || errorState === 'remote-failed' ? <OfflineBanner /> : null}
         {status === 'loading' ? <StateLoading /> : null}
         {errorState === 'no-data' ? <StateError onRetry={() => fetchLogs()} message="Không tải dữ liệu được" /> : null}
-        <ScrollView contentContainerStyle={[styles.container, { paddingTop: padTop }]}>
+        <ScrollView 
+          contentContainerStyle={[styles.container, { paddingTop: padTop }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={status === 'loading'}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
           <H1SectionHeader title="Ghi nhật ký" subtitle="Chọn loại ghi" />
           <ListItem title="Đường huyết" onPress={() => router.push('/logs/glucose')} />
           <ListItem title="Huyết áp" onPress={() => router.push('/logs/blood-pressure')} style={{ marginTop: spacing.md }} />

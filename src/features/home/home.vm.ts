@@ -1,11 +1,30 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { LogEntry, useLogsStore } from '../logs/logs.store';
 import { useMissionsStore } from '../missions/missions.store';
-import { useTreeStore } from '../tree/tree.store';
+import { TreeHistoryPoint, useTreeStore } from '../tree/tree.store';
 
 // Helper to get value from log entry
 const getLogValue = (log: LogEntry, field: 'value' | 'systolic' | 'diastolic' | 'volume_ml') => {
   return log[field];
+};
+
+// Helper to create trend data from logs
+const createGlucoseTrendFromLogs = (logs: LogEntry[]): TreeHistoryPoint[] => {
+  const glucoseLogs = logs
+    .filter(log => log.type === 'glucose' && log.value !== undefined)
+    .slice(0, 7)
+    .reverse(); // Oldest first
+  
+  if (glucoseLogs.length === 0) return [];
+  
+  return glucoseLogs.map((log, index) => {
+    const date = log.recordedAt ? new Date(log.recordedAt) : new Date();
+    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    return {
+      label: dayNames[date.getDay()],
+      value: log.value || 0
+    };
+  });
 };
 
 export const useHomeViewModel = () => {
@@ -22,6 +41,7 @@ export const useHomeViewModel = () => {
   const missionsError = useMissionsStore((state) => state.errorState);
 
   const treeSummary = useTreeStore((state) => state.summary);
+  const treeHistory = useTreeStore((state) => state.history);
   const fetchTree = useTreeStore((state) => state.fetchTree);
   const treeStatus = useTreeStore((state) => state.status);
   const treeIsStale = useTreeStore((state) => state.isStale);
@@ -53,6 +73,11 @@ export const useHomeViewModel = () => {
     };
   }, [logs]);
 
+  // Tạo dữ liệu biểu đồ từ logs thực tế
+  const glucoseTrendData = useMemo(() => {
+    return createGlucoseTrendFromLogs(logs);
+  }, [logs]);
+
   const refreshAll = useCallback(() => {
     const controller = new AbortController();
     fetchLogs(controller.signal);
@@ -67,6 +92,8 @@ export const useHomeViewModel = () => {
     logs,
     missions: missions.slice(0, 3),
     treeSummary,
+    treeHistory,
+    glucoseTrendData,
     quickMetrics,
     logsStatus,
     missionsStatus,

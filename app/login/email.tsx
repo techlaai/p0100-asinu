@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,40 +10,36 @@ import { useAuthStore } from '../../src/features/auth/auth.store';
 import { colors, radius, spacing, typography } from '../../src/styles';
 
 export default function LoginEmailScreen() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState(''); // Email or phone
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [loginMode, setLoginMode] = useState<'email' | 'phone'>('email');
-  const [pendingAction, setPendingAction] = useState<'email' | 'phone' | SocialProvider | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [identifierError, setIdentifierError] = useState<string | undefined>();
+  const [pendingAction, setPendingAction] = useState<'login' | SocialProvider | null>(null);
   const login = useAuthStore((state) => state.login);
-  const loginWithPhone = useAuthStore((state) => state.loginWithPhone);
   const loginWithSocial = useAuthStore((state) => state.loginWithSocial);
   const loading = useAuthStore((state) => state.loading);
   const error = useAuthStore((state) => state.error);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  
   const openLegal = (type: 'terms' | 'privacy') => {
     router.push({ pathname: '/legal/content', params: { type } });
   };
 
-  const handleEmailLogin = async () => {
-    if (!email.trim() || !password.trim() || loading) return;
-    setPendingAction('email');
-    try {
-      await login({ email: email.trim(), password: password.trim() });
-      router.replace('/(tabs)/home');
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setPendingAction(null);
+  const handleIdentifierBlur = () => {
+    if (!identifier.trim()) {
+      setIdentifierError('Vui lòng nhập email hoặc số điện thoại');
+    } else {
+      setIdentifierError(undefined);
     }
   };
 
-  const handlePhoneLogin = async () => {
-    if (!phone.trim() || loading) return;
-    setPendingAction('phone');
+  const handleLogin = async () => {
+    if (!identifier.trim() || !password.trim() || loading) return;
+    
+    setPendingAction('login');
     try {
-      await loginWithPhone(phone.trim());
+      await login({ identifier: identifier.trim(), password: password.trim() });
       router.replace('/(tabs)/home');
     } catch (err) {
       console.error(err);
@@ -65,85 +62,62 @@ export default function LoginEmailScreen() {
   };
 
   const isSubmitting = loading;
-  const emailButtonLoading = isSubmitting && pendingAction === 'email';
-  const phoneButtonLoading = isSubmitting && pendingAction === 'phone';
+  const loginButtonLoading = isSubmitting && pendingAction === 'login';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
       <Text style={styles.title}>Đăng nhập</Text>
-      <Text style={styles.subtitle}>
-        {loginMode === 'email' ? 'Nhập email và mật khẩu' : 'Nhập số điện thoại hoặc chọn mạng xã hội'}
-      </Text>
-
-      {/* Mode Toggle */}
-      <View style={styles.toggleContainer}>
-        <Pressable
-          onPress={() => setLoginMode('email')}
-          style={[styles.toggleButton, loginMode === 'email' && styles.toggleButtonActive]}
-        >
-          <Text style={[styles.toggleText, loginMode === 'email' && styles.toggleTextActive]}>
-            Email
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setLoginMode('phone')}
-          style={[styles.toggleButton, loginMode === 'phone' && styles.toggleButtonActive]}
-        >
-          <Text style={[styles.toggleText, loginMode === 'phone' && styles.toggleTextActive]}>
-            Điện thoại
-          </Text>
-        </Pressable>
-      </View>
+      <Text style={styles.subtitle}>Nhập email hoặc số điện thoại và mật khẩu</Text>
 
       <View style={styles.form}>
-        {loginMode === 'email' ? (
-          <>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              style={styles.inputRounded}
+        <View style={styles.inputGroup}>
+          <TextInput
+            value={identifier}
+            onChangeText={(text) => {
+              setIdentifier(text);
+              setIdentifierError(undefined);
+            }}
+            onBlur={handleIdentifierBlur}
+            placeholder="Email hoặc số điện thoại"
+            keyboardType="default"
+            autoCapitalize="none"
+            style={styles.inputRounded}
+            placeholderTextColor="#9AA0A6"
+          />
+          {identifierError && <Text style={styles.fieldError}>{identifierError}</Text>}
+        </View>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Mật khẩu"
+            secureTextEntry={!showPassword}
+            style={[styles.inputRounded, styles.passwordInput]}
+            placeholderTextColor="#9AA0A6"
+          />
+          <Pressable
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.passwordToggle}
+          >
+            <Ionicons
+              name={showPassword ? 'eye' : 'eye-off'}
+              size={20}
+              color={colors.textSecondary}
             />
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Mật khẩu"
-              secureTextEntry
-              style={styles.inputRounded}
-            />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <Button
-              label={emailButtonLoading ? 'Đang xử lý...' : 'Đăng nhập'}
-              onPress={handleEmailLogin}
-              disabled={isSubmitting || !email.trim() || !password.trim()}
-              style={styles.primaryButton}
-            />
-          </>
-        ) : (
-          <>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="Số điện thoại"
-              keyboardType="phone-pad"
-              style={styles.inputRounded}
-            />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <Button
-              label={phoneButtonLoading ? 'Đang xử lý...' : 'Tiếp tục'}
-              onPress={handlePhoneLogin}
-              disabled={isSubmitting || !phone.trim()}
-              style={styles.primaryButton}
-            />
-          </>
-        )}
+          </Pressable>
+        </View>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <Button
+          label={loginButtonLoading ? 'Đang xử lý...' : 'Đăng nhập'}
+          onPress={handleLogin}
+          disabled={isSubmitting || !identifier.trim() || !password.trim()}
+          style={styles.primaryButton}
+        />
         <View style={styles.divider}>
           <Text style={styles.dividerText}>Hoặc tiếp tục với</Text>
         </View>
         <View style={styles.socialGroup}>
-          {(['google', 'apple', 'zalo'] as const).map((provider) => {
+          {(['google', 'apple'] as const).map((provider) => {
             const isButtonLoading = isSubmitting && pendingAction === provider;
             const label =
               provider === 'google'
@@ -182,6 +156,13 @@ export default function LoginEmailScreen() {
           </Pressable>
         </View>
       </View>
+
+      <View style={styles.registerPrompt}>
+        <Text style={styles.registerText}>Chưa có tài khoản? </Text>
+        <Pressable onPress={() => router.push('/register')}>
+          <Text style={styles.registerLink}>Đăng ký</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -202,7 +183,9 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.textSecondary,
-    textAlign: 'center'
+    textAlign: 'left',
+    fontWeight: '400',
+    marginBottom: spacing.lg
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -229,16 +212,49 @@ const styles = StyleSheet.create({
     color: colors.background
   },
   form: {
-    gap: spacing.md
+    gap: spacing.xl,
+    width: '100%'
   },
   inputRounded: {
-    borderRadius: radius.xxl
+    borderRadius: radius.xxl,
+    height: 52,
+    fontSize: typography.size.md
+  },
+  inputGroup: {
+    gap: spacing.sm
+  },
+  passwordContainer: {
+    position: 'relative',
+    width: '100%'
+  },
+  passwordInput: {
+    paddingRight: spacing.xl + spacing.lg
+  },
+  passwordToggle: {
+    position: 'absolute',
+    right: spacing.lg,
+    top: 0,
+    height: 52,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  passwordIcon: {
+    fontSize: 20
+  },
+  fieldError: {
+    color: colors.danger,
+    fontSize: typography.size.sm,
+    marginTop: spacing.xs / 2,
   },
   errorText: {
     color: colors.danger
   },
   primaryButton: {
-    borderRadius: radius.xxl
+    alignSelf: 'center',
+    width: '100%',
+    borderRadius: radius.xxl,
+    height: 52,
+    marginTop: spacing.lg
   },
   divider: {
     alignItems: 'center',
@@ -247,7 +263,7 @@ const styles = StyleSheet.create({
   dividerText: {
     color: colors.textSecondary,
     fontSize: typography.size.sm,
-    fontWeight: '600'
+    fontWeight: '400'
   },
   socialGroup: {
     gap: spacing.sm
@@ -275,18 +291,38 @@ const styles = StyleSheet.create({
   },
   legal: {
     gap: spacing.xs,
-    marginTop: spacing.lg
+    marginTop: spacing.lg,
+    alignItems: 'center'
   },
   helper: {
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontWeight: '400',
+    fontSize: typography.size.sm,
+    textAlign: 'center'
   },
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm
+    gap: spacing.sm,
+    justifyContent: 'center'
   },
   link: {
     color: colors.primary,
+    fontWeight: '700'
+  },
+  registerPrompt: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.md
+  },
+  registerText: {
+    color: colors.textSecondary,
+    fontSize: typography.size.md
+  },
+  registerLink: {
+    color: colors.primary,
+    fontSize: typography.size.md,
     fontWeight: '700'
   },
   separator: {
