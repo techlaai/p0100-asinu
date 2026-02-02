@@ -26,6 +26,7 @@ export default function CareCircleScreen() {
     acceptInvitation,
     rejectInvitation,
     deleteConnection,
+    updateConnection,
     refresh
   } = useCareCircle();
 
@@ -125,17 +126,37 @@ export default function CareCircleScreen() {
 
   const handleEditConnection = (connection: any) => {
     setEditConnection(connection);
-    const relOption = relationshipOptions.find(opt => opt.id === connection.relationship_type);
-    const roleOption = roleOptions.find(opt => opt.id === connection.role);
+    // Tìm theo id hoặc label (vì backend có thể lưu label thay vì id)
+    const relOption = relationshipOptions.find(
+      opt => opt.id === connection.relationship_type || opt.label === connection.relationship_type
+    );
+    const roleOption = roleOptions.find(
+      opt => opt.id === connection.role || opt.label === connection.role
+    );
     setEditRelationType(relOption || null);
     setEditRole(roleOption || null);
     setEditModalVisible(true);
   };
 
   const handleSaveEdit = async () => {
-    // For now, just close modal - backend update can be added later
-    setEditModalVisible(false);
-    Alert.alert('Thông báo', 'Chỉnh sửa thông tin thành công');
+    if (!editConnection) return;
+    
+    try {
+      setActionLoading(editConnection.id);
+      
+      await updateConnection(editConnection.id, {
+        relationship_type: editRelationType?.id,
+        role: editRole?.id
+      });
+      
+      setEditModalVisible(false);
+      Alert.alert('Thông báo', 'Chỉnh sửa thông tin thành công');
+    } catch (error) {
+      console.error('Failed to update connection:', error);
+      Alert.alert('Lỗi', 'Không thể cập nhật thông tin. Vui lòng thử lại.');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const receivedInvitations = invitations.filter(
@@ -325,6 +346,16 @@ export default function CareCircleScreen() {
               contentContainerStyle={styles.modalContent}
             >
               <H1SectionHeader title={`Chỉnh sửa: ${editConnection?.name}`} />
+              
+              <View style={styles.currentInfoBox}>
+                <Text style={styles.currentInfoTitle}>Thông tin hiện tại:</Text>
+                <Text style={styles.currentInfoText}>
+                  Mối quan hệ: {editRelationType?.label || 'Chưa có'}
+                </Text>
+                <Text style={styles.currentInfoText}>
+                  Vai trò: {editRole?.label || 'Chưa có'}
+                </Text>
+              </View>
               
               <View style={styles.modalSection}>
                 <Dropdown
@@ -522,5 +553,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     marginTop: spacing.lg
+  },
+  currentInfoBox: {
+    backgroundColor: colors.primary + '15',
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary
+  },
+  currentInfoTitle: {
+    fontSize: typography.size.sm,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs
+  },
+  currentInfoText: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs / 2
   }
 });

@@ -13,7 +13,7 @@ export const missionsApi = {
       signal: options?.signal
     });
     if (!response.ok) {
-      throw new Error('Failed to fetch missions');
+      throw new Error('Không thể tải nhiệm vụ');
     }
     return response.missions || [];
   }

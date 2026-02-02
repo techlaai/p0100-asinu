@@ -26,6 +26,17 @@
         "NODE_ENV": "development"
       }
     },
+    "simulator-standalone": {
+      "developmentClient": false,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "dev",
+        "NODE_ENV": "development"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "env": {

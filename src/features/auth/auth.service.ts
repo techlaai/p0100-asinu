@@ -37,7 +37,7 @@ export const authService = {
         token: response.token,
         profile: {
           id: response.user.id,
-          name: response.user.email?.split('@')[0] || 'User',
+          name: response.user.email?.split('@')[0] || 'Người dùng',
           email: response.user.email,
           phone: payload.phone
         }
@@ -53,11 +53,11 @@ export const authService = {
       const oauthResult = await authenticateWithProvider(payload.provider as OAuthProvider);
       
       if (oauthResult.type === 'cancel') {
-        throw new Error('Authentication cancelled by user');
+        throw new Error('Đăng nhập bị hủy bởi người dùng');
       }
       
       if (oauthResult.type === 'error') {
-        throw new Error(oauthResult.error || 'OAuth authentication failed');
+        throw new Error(oauthResult.error || 'Xác thực thất bại');
       }
       
       // Step 2: Send OAuth result to backend for verification and user creation

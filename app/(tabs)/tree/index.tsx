@@ -159,10 +159,10 @@ export default function TreeScreen() {
             <View style={styles.metaRow}>
               <Ionicons name="checkmark-circle" size={16} color="#51cf66" />
               <Text style={styles.metaText}>
-                Nhiệm vụ tuần: {summary?.completedThisWeek ?? 0}/{summary?.totalMissions ?? 0}
+                Hôm nay: {summary?.completedThisWeek ?? 0}/{summary?.totalMissions ?? 8}
               </Text>
             </View>
-            <Text style={styles.metaSubtext}>(Nhiệm vụ làm mới mỗi ngày)</Text>
+            <Text style={styles.metaSubtext}>(Nhiệm vụ làm mới mỗi ngày lúc 00:00)</Text>
           </View>
         </View>
         <View style={styles.metricGrid}>

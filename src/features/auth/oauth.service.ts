@@ -78,7 +78,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
         idToken: 'mock-google-id-token',
         profile: {
           email: `dev-${Date.now()}@gmail.com`,
-          name: 'Dev User (Google)',
+          name: 'Người dùng thử (Google)',
           sub: `google_dev_${Date.now()}`
         }
       };
@@ -86,7 +86,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
 
     const clientId = getGoogleClientId();
     if (!clientId) {
-      throw new Error('Google Client ID not configured');
+      throw new Error('Chưa cấu hình Google Client ID');
     }
 
     const redirectUri = makeRedirectUri({
@@ -116,7 +116,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       const idToken = params.get('id_token');
 
       if (!accessToken) {
-        throw new Error('No access token received');
+        throw new Error('Không nhận được access token');
       }
 
       // Fetch user profile
@@ -142,12 +142,12 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       return { type: 'cancel' };
     }
 
-    return { type: 'error', error: 'Authentication failed' };
+    return { type: 'error', error: 'Xác thực thất bại' };
   } catch (error) {
     console.error('[oauth] Google authentication error:', error);
     return {
       type: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Lỗi không xác định'
     };
   }
 }
@@ -161,7 +161,7 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
     if (Platform.OS !== 'ios') {
       return {
         type: 'error',
-        error: 'Apple Sign In is only available on iOS'
+        error: 'Đăng nhập Apple chỉ hỗ trợ trên iOS'
       };
     }
 
@@ -174,7 +174,7 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
         idToken: 'mock-apple-id-token',
         profile: {
           email: `dev-${Date.now()}@privaterelay.appleid.com`,
-          name: 'Dev User (Apple)',
+          name: 'Người dùng thử (Apple)',
           sub: `apple_dev_${Date.now()}`
         }
       };
@@ -210,7 +210,7 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
     console.error('[oauth] Apple authentication error:', error);
     return {
       type: 'error',
-      error: error.message || 'Apple authentication failed'
+      error: error.message || 'Xác thực Apple thất bại'
     };
   }
 }

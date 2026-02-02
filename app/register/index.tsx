@@ -145,8 +145,9 @@ export default function RegisterScreen() {
             }}
             onBlur={handlePhoneBlur}
             keyboardType="phone-pad" 
-            placeholder="0912345678 hoặc +84912345678" 
+            placeholder="0912345678" 
           />
+          <Text style={styles.fieldHelp}>Bắt đầu bằng số 0 (hoặc +84)</Text>
           {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
         </View>
         
@@ -238,6 +239,11 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     color: colors.danger,
+    fontSize: typography.size.sm,
+    marginTop: spacing.xs / 2,
+  },
+  fieldHelp: {
+    color: colors.textSecondary,
     fontSize: typography.size.sm,
     marginTop: spacing.xs / 2,
   },

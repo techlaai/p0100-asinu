@@ -116,6 +116,18 @@ export const careCircleApi = {
     return response;
   },
 
+  // Update connection
+  async updateConnection(connectionId: string, updates: { relationship_type?: string; role?: string }) {
+    const response = await apiClient<{ ok: boolean; connection: CareCircleConnection }>(
+      `/api/care-circle/connections/${connectionId}`,
+      { 
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      }
+    );
+    return response.connection;
+  },
+
   // Search users for invitation
   async searchUsers(query: string) {
     const response = await apiClient<{ 

@@ -135,5 +135,5 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
     }
   }
 
-  throw lastError ?? new Error('Unknown network error');
+  throw lastError ?? new Error('Lỗi mạng không xác định');
 }

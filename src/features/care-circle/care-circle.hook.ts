@@ -24,7 +24,7 @@ export function useCareCircle() {
       setInvitations(allInvitations);
     } catch (err: any) {
       console.error('[care-circle] fetchInvitations error:', err);
-      setError(err.message || 'Failed to fetch invitations');
+      setError(err.message || 'Không thể tải lời mời');
     } finally {
       setLoading(false);
     }
@@ -38,7 +38,7 @@ export function useCareCircle() {
       setConnections(data);
     } catch (err: any) {
       console.error('[care-circle] fetchConnections error:', err);
-      setError(err.message || 'Failed to fetch connections');
+      setError(err.message || 'Không thể tải kết nối');
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export function useCareCircle() {
       return invitation;
     } catch (err: any) {
       console.error('[care-circle] createInvitation error:', err);
-      setError(err.message || 'Failed to create invitation');
+      setError(err.message || 'Không thể tạo lời mời');
       throw err;
     } finally {
       setLoading(false);
@@ -73,7 +73,7 @@ export function useCareCircle() {
       return connection;
     } catch (err: any) {
       console.error('[care-circle] acceptInvitation error:', err);
-      setError(err.message || 'Failed to accept invitation');
+      setError(err.message || 'Không thể chấp nhận lời mời');
       throw err;
     } finally {
       setLoading(false);
@@ -89,7 +89,7 @@ export function useCareCircle() {
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
     } catch (err: any) {
       console.error('[care-circle] rejectInvitation error:', err);
-      setError(err.message || 'Failed to reject invitation');
+      setError(err.message || 'Không thể từ chối lời mời');
       throw err;
     } finally {
       setLoading(false);
@@ -105,7 +105,24 @@ export function useCareCircle() {
       setConnections((prev) => prev.filter((conn) => conn.id !== connectionId));
     } catch (err: any) {
       console.error('[care-circle] deleteConnection error:', err);
-      setError(err.message || 'Failed to delete connection');
+      setError(err.message || 'Không thể xóa kết nối');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateConnection = useCallback(async (connectionId: string, updates: { relationship_type?: string; role?: string }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedConnection = await careCircleApi.updateConnection(connectionId, updates);
+      // Update in connections list
+      setConnections((prev) => prev.map((conn) => conn.id === connectionId ? updatedConnection : conn));
+      return updatedConnection;
+    } catch (err: any) {
+      console.error('[care-circle] updateConnection error:', err);
+      setError(err.message || 'Không thể cập nhật kết nối');
       throw err;
     } finally {
       setLoading(false);
@@ -133,6 +150,7 @@ export function useCareCircle() {
     acceptInvitation,
     rejectInvitation,
     deleteConnection,
+    updateConnection,
     refresh
   };
 }

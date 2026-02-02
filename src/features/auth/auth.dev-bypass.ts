@@ -2,9 +2,9 @@ import { Profile } from './auth.store';
 
 export const buildBypassProfile = (): Profile => ({
   id: 'dev-user',
-  name: 'Dev Caregiver',
+  name: 'Người dùng thử',
   email: 'dev@example.com',
-  phone: '+84 912 345 678',
+  phone: '0912345678',
   relationship: 'Con gái chăm sóc bố',
   avatarUrl: undefined
 });
